@@ -12,6 +12,7 @@
 #include <QTableView>
 #include <QByteArray>
 #include <QTimer>
+#include <QScrollArea>
 #include <QtCharts/QChart>
 #include <QtCharts/QChartView>
 #include "citymodel.h"
@@ -52,6 +53,7 @@ private:
     void loadFavoriteCities();
     void updateCurrentDateTime();
     void updateTrendChart(ForecastModel* forecast);
+    void updateCurrentMetricsCharts(const QByteArray& data);
     void applyChartTheme(QChart* chart);
     int parseWindPowerValue(const QString& windPower) const;
     WeatherType parseWeatherCode(int weatherCode) const;
@@ -79,6 +81,7 @@ private:
 
     // --- 主内容区域控件 ---
     QWidget *m_mainContent;
+    QScrollArea *m_mainScrollArea;
     QLabel *m_cityLabel;
     QLabel *m_currentTimeLabel;
     QLabel *m_currentDateLabel;
@@ -94,6 +97,11 @@ private:
     QLabel *m_humidityLabel;
     QLabel *m_windLabel;
     QLabel *m_pressureLabel;
+    QWidget *m_currentMetricsPanel;
+    QScrollArea *m_currentMetricsScrollArea;
+    QChartView *m_tempMetricsChartView;
+    QChartView *m_airMetricsChartView;
+    QChartView *m_windMetricsChartView;
 
     // --- 预报面板控件 ---
     QWidget *m_forecastPanel;

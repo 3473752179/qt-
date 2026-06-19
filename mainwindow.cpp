@@ -15,6 +15,7 @@
 #include <QRegularExpression>
 #include <limits>
 #include <QtCharts/QChart>
+#include <QtCharts/QDateTimeAxis>
 #include <QtCharts/QLineSeries>
 #include <QtCharts/QValueAxis>
 #include <QtCharts/QBarCategoryAxis>
@@ -84,6 +85,13 @@ void MainWindow::setupUI()
     QVBoxLayout *contentLayout = new QVBoxLayout(m_mainContent);
     contentLayout->setContentsMargins(20, 20, 20, 20);
     contentLayout->setSpacing(15);
+
+    m_mainScrollArea = new QScrollArea();
+    m_mainScrollArea->setWidgetResizable(true);
+    m_mainScrollArea->setFrameShape(QFrame::NoFrame);
+    m_mainScrollArea->setHorizontalScrollBarPolicy(Qt::ScrollBarAlwaysOff);
+    m_mainScrollArea->setVerticalScrollBarPolicy(Qt::ScrollBarAsNeeded);
+    m_mainScrollArea->setWidget(m_mainContent);
 
     // --- 标题栏 ---
     QWidget *titleBar = new QWidget();
@@ -173,6 +181,54 @@ void MainWindow::setupUI()
 
     contentLayout->addWidget(m_weatherPanel);
 
+    m_currentMetricsPanel = new QWidget();
+    QVBoxLayout *currentMetricsLayout = new QVBoxLayout(m_currentMetricsPanel);
+    currentMetricsLayout->setContentsMargins(0, 0, 0, 0);
+    currentMetricsLayout->setSpacing(8);
+
+    QLabel *currentMetricsTitleLabel = new QLabel("实况数据可视化");
+    QFont currentMetricsTitleFont = currentMetricsTitleLabel->font();
+    currentMetricsTitleFont.setPointSize(12);
+    currentMetricsTitleFont.setBold(true);
+    currentMetricsTitleLabel->setFont(currentMetricsTitleFont);
+    currentMetricsLayout->addWidget(currentMetricsTitleLabel);
+
+    QWidget *currentMetricsContent = new QWidget();
+    currentMetricsContent->setMinimumWidth(1500);
+    currentMetricsContent->setMinimumHeight(860);
+    QVBoxLayout *currentMetricsContentLayout = new QVBoxLayout(currentMetricsContent);
+    currentMetricsContentLayout->setContentsMargins(0, 0, 0, 0);
+    currentMetricsContentLayout->setSpacing(8);
+
+    m_tempMetricsChartView = new QChartView();
+    m_tempMetricsChartView->setMinimumHeight(260);
+    m_tempMetricsChartView->setMinimumWidth(1450);
+    m_tempMetricsChartView->setRenderHint(QPainter::Antialiasing);
+    currentMetricsContentLayout->addWidget(m_tempMetricsChartView);
+
+    m_airMetricsChartView = new QChartView();
+    m_airMetricsChartView->setMinimumHeight(260);
+    m_airMetricsChartView->setMinimumWidth(1450);
+    m_airMetricsChartView->setRenderHint(QPainter::Antialiasing);
+    currentMetricsContentLayout->addWidget(m_airMetricsChartView);
+
+    m_windMetricsChartView = new QChartView();
+    m_windMetricsChartView->setMinimumHeight(260);
+    m_windMetricsChartView->setMinimumWidth(1450);
+    m_windMetricsChartView->setRenderHint(QPainter::Antialiasing);
+    currentMetricsContentLayout->addWidget(m_windMetricsChartView);
+
+    m_currentMetricsScrollArea = new QScrollArea();
+    m_currentMetricsScrollArea->setWidgetResizable(false);
+    m_currentMetricsScrollArea->setFrameShape(QFrame::NoFrame);
+    m_currentMetricsScrollArea->setHorizontalScrollBarPolicy(Qt::ScrollBarAsNeeded);
+    m_currentMetricsScrollArea->setVerticalScrollBarPolicy(Qt::ScrollBarAlwaysOff);
+    m_currentMetricsScrollArea->setMinimumHeight(880);
+    m_currentMetricsScrollArea->setWidget(currentMetricsContent);
+    currentMetricsLayout->addWidget(m_currentMetricsScrollArea);
+
+    contentLayout->addWidget(m_currentMetricsPanel);
+
     // --- 预报面板 ---
     m_forecastPanel = new QWidget();
     m_forecastLayout = new QHBoxLayout(m_forecastPanel);
@@ -202,7 +258,7 @@ void MainWindow::setupUI()
 
     // --- 添加主布局 ---
     mainLayout->addWidget(m_sidebar);
-    mainLayout->addWidget(m_mainContent, 1);
+    mainLayout->addWidget(m_mainScrollArea, 1);
 
     // --- 应用默认主题 ---
     applyTheme(false);
@@ -386,6 +442,209 @@ void MainWindow::applyChartTheme(QChart *chart)
         axis->setGridLineColor(gridColor);
         axis->setMinorGridLineColor(gridColor);
         axis->setTitleBrush(QBrush(textColor));
+    }
+}
+
+void MainWindow::updateCurrentMetricsCharts(const QByteArray& data)
+{
+    QJsonDocument doc = QJsonDocument::fromJson(data);
+    if (!doc.isObject()) {
+        return;
+    }
+
+    const QJsonObject hourly = doc.object().value("hourly").toObject();
+    if (hourly.isEmpty()) {
+        return;
+    }
+
+    const QJsonArray timeArray = hourly.value("time").toArray();
+    const QJsonArray temperatureArray = hourly.value("temperature_2m").toArray();
+    const QJsonArray apparentTemperatureArray = hourly.value("apparent_temperature").toArray();
+    const QJsonArray humidityArray = hourly.value("relative_humidity_2m").toArray();
+    const QJsonArray pressureArray = hourly.value("pressure_msl").toArray();
+    const QJsonArray windSpeedArray = hourly.value("wind_speed_10m").toArray();
+    const QJsonArray windDirectionArray = hourly.value("wind_direction_10m").toArray();
+
+    const int pointCount = qMin(timeArray.size(),
+                                qMin(temperatureArray.size(),
+                                     qMin(apparentTemperatureArray.size(),
+                                          qMin(humidityArray.size(),
+                                               qMin(pressureArray.size(),
+                                                    qMin(windSpeedArray.size(), windDirectionArray.size()))))));
+    if (pointCount <= 0) {
+        return;
+    }
+
+    QLineSeries *temperatureSeries = new QLineSeries();
+    temperatureSeries->setName("温度");
+    temperatureSeries->setColor(QColor("#e76f51"));
+    temperatureSeries->setPointsVisible(true);
+
+    QLineSeries *apparentTemperatureSeries = new QLineSeries();
+    apparentTemperatureSeries->setName("体感温度");
+    apparentTemperatureSeries->setColor(QColor("#f4a261"));
+    apparentTemperatureSeries->setPointsVisible(true);
+
+    QLineSeries *humiditySeries = new QLineSeries();
+    humiditySeries->setName("湿度");
+    humiditySeries->setColor(QColor("#3a86ff"));
+    humiditySeries->setPointsVisible(true);
+
+    QLineSeries *pressureSeries = new QLineSeries();
+    pressureSeries->setName("气压");
+    pressureSeries->setColor(QColor("#6d597a"));
+    pressureSeries->setPointsVisible(true);
+
+    QLineSeries *windSpeedSeries = new QLineSeries();
+    windSpeedSeries->setName("风速");
+    windSpeedSeries->setColor(QColor("#2a9d8f"));
+    windSpeedSeries->setPointsVisible(true);
+
+    QLineSeries *windDirectionSeries = new QLineSeries();
+    windDirectionSeries->setName("风向角度");
+    windDirectionSeries->setColor(QColor("#264653"));
+    windDirectionSeries->setPointsVisible(true);
+    windDirectionSeries->setPen(QPen(QColor("#264653"), 2, Qt::DashLine));
+
+    double minTemp = std::numeric_limits<double>::max();
+    double maxTemp = std::numeric_limits<double>::lowest();
+    double minPressure = std::numeric_limits<double>::max();
+    double maxPressure = std::numeric_limits<double>::lowest();
+    double maxWindSpeed = 0.0;
+    qint64 minTimestamp = std::numeric_limits<qint64>::max();
+    qint64 maxTimestamp = std::numeric_limits<qint64>::lowest();
+
+    for (int i = 0; i < pointCount; ++i) {
+        const QString timeText = timeArray.at(i).toString();
+        const QDateTime time = QDateTime::fromString(timeText, Qt::ISODate);
+        const qint64 timestamp = time.isValid() ? time.toMSecsSinceEpoch() : i;
+
+        const double temperature = temperatureArray.at(i).toDouble();
+        const double apparentTemperature = apparentTemperatureArray.at(i).toDouble();
+        const double humidity = humidityArray.at(i).toDouble();
+        const double pressure = pressureArray.at(i).toDouble();
+        const double windSpeed = windSpeedArray.at(i).toDouble();
+        const double windDirection = windDirectionArray.at(i).toDouble();
+
+        temperatureSeries->append(timestamp, temperature);
+        apparentTemperatureSeries->append(timestamp, apparentTemperature);
+        humiditySeries->append(timestamp, humidity);
+        pressureSeries->append(timestamp, pressure);
+        windSpeedSeries->append(timestamp, windSpeed);
+        windDirectionSeries->append(timestamp, windDirection);
+
+        minTemp = qMin(minTemp, qMin(temperature, apparentTemperature));
+        maxTemp = qMax(maxTemp, qMax(temperature, apparentTemperature));
+        minPressure = qMin(minPressure, pressure);
+        maxPressure = qMax(maxPressure, pressure);
+        maxWindSpeed = qMax(maxWindSpeed, windSpeed);
+        minTimestamp = qMin(minTimestamp, timestamp);
+        maxTimestamp = qMax(maxTimestamp, timestamp);
+    }
+
+    auto createTimeAxis = [pointCount, minTimestamp, maxTimestamp]() {
+        QDateTimeAxis *axis = new QDateTimeAxis();
+        axis->setFormat("HH:mm");
+        axis->setTickCount(qMin(pointCount, 8));
+        axis->setRange(QDateTime::fromMSecsSinceEpoch(minTimestamp),
+                       QDateTime::fromMSecsSinceEpoch(maxTimestamp));
+        axis->setTitleText("时间");
+        return axis;
+    };
+
+    {
+        QChart *chart = new QChart();
+        chart->setTitle("温度与体感温度");
+        chart->legend()->setVisible(true);
+        chart->legend()->setAlignment(Qt::AlignBottom);
+        chart->setMargins(QMargins(28, 20, 28, 18));
+        chart->addSeries(temperatureSeries);
+        chart->addSeries(apparentTemperatureSeries);
+
+        QDateTimeAxis *axisX = createTimeAxis();
+        chart->addAxis(axisX, Qt::AlignBottom);
+        temperatureSeries->attachAxis(axisX);
+        apparentTemperatureSeries->attachAxis(axisX);
+
+        QValueAxis *axisY = new QValueAxis();
+        axisY->setTitleText("摄氏度");
+        axisY->setLabelFormat("%.0f");
+        axisY->setTickCount(6);
+        axisY->setRange(minTemp - 2.0, maxTemp + 2.0);
+        chart->addAxis(axisY, Qt::AlignLeft);
+        temperatureSeries->attachAxis(axisY);
+        apparentTemperatureSeries->attachAxis(axisY);
+
+        applyChartTheme(chart);
+        m_tempMetricsChartView->setChart(chart);
+    }
+
+    {
+        QChart *chart = new QChart();
+        chart->setTitle("湿度与气压");
+        chart->legend()->setVisible(true);
+        chart->legend()->setAlignment(Qt::AlignBottom);
+        chart->setMargins(QMargins(28, 20, 36, 18));
+        chart->addSeries(humiditySeries);
+        chart->addSeries(pressureSeries);
+
+        QDateTimeAxis *axisX = createTimeAxis();
+        chart->addAxis(axisX, Qt::AlignBottom);
+        humiditySeries->attachAxis(axisX);
+        pressureSeries->attachAxis(axisX);
+
+        QValueAxis *humidityAxis = new QValueAxis();
+        humidityAxis->setTitleText("湿度%");
+        humidityAxis->setLabelFormat("%.0f");
+        humidityAxis->setTickCount(6);
+        humidityAxis->setRange(0, 100);
+        chart->addAxis(humidityAxis, Qt::AlignLeft);
+        humiditySeries->attachAxis(humidityAxis);
+
+        QValueAxis *pressureAxis = new QValueAxis();
+        pressureAxis->setTitleText("气压hPa");
+        pressureAxis->setLabelFormat("%.0f");
+        pressureAxis->setTickCount(6);
+        pressureAxis->setRange(minPressure - 2.0, maxPressure + 2.0);
+        chart->addAxis(pressureAxis, Qt::AlignRight);
+        pressureSeries->attachAxis(pressureAxis);
+
+        applyChartTheme(chart);
+        m_airMetricsChartView->setChart(chart);
+    }
+
+    {
+        QChart *chart = new QChart();
+        chart->setTitle("风速与风向");
+        chart->legend()->setVisible(true);
+        chart->legend()->setAlignment(Qt::AlignBottom);
+        chart->setMargins(QMargins(28, 20, 36, 18));
+        chart->addSeries(windSpeedSeries);
+        chart->addSeries(windDirectionSeries);
+
+        QDateTimeAxis *axisX = createTimeAxis();
+        chart->addAxis(axisX, Qt::AlignBottom);
+        windSpeedSeries->attachAxis(axisX);
+        windDirectionSeries->attachAxis(axisX);
+
+        QValueAxis *windSpeedAxis = new QValueAxis();
+        windSpeedAxis->setTitleText("风速km/h");
+        windSpeedAxis->setLabelFormat("%.0f");
+        windSpeedAxis->setTickCount(6);
+        windSpeedAxis->setRange(0, qMax(10.0, maxWindSpeed + 5.0));
+        chart->addAxis(windSpeedAxis, Qt::AlignLeft);
+        windSpeedSeries->attachAxis(windSpeedAxis);
+
+        QValueAxis *windDirectionAxis = new QValueAxis();
+        windDirectionAxis->setTitleText("风向角度");
+        windDirectionAxis->setLabelFormat("%.0f");
+        windDirectionAxis->setTickCount(5);
+        windDirectionAxis->setRange(0, 360);
+        chart->addAxis(windDirectionAxis, Qt::AlignRight);
+        windDirectionSeries->attachAxis(windDirectionAxis);
+
+        applyChartTheme(chart);
+        m_windMetricsChartView->setChart(chart);
     }
 }
 
@@ -695,6 +954,7 @@ void MainWindow::onWeatherDataReceived(const QByteArray& data, const QString& ci
     WeatherModel* weather = parseCurrentWeather(data, cityId);
     if (weather) {
         updateWeatherDisplay(weather);
+        updateCurrentMetricsCharts(data);
         DataManager::instance().cacheWeatherData(weather->cityId(), weather);
         delete weather;
     }
@@ -897,5 +1157,14 @@ void MainWindow::applyTheme(bool isDark)
 
     if (m_trendChartView && m_trendChartView->chart()) {
         applyChartTheme(m_trendChartView->chart());
+    }
+    if (m_tempMetricsChartView && m_tempMetricsChartView->chart()) {
+        applyChartTheme(m_tempMetricsChartView->chart());
+    }
+    if (m_airMetricsChartView && m_airMetricsChartView->chart()) {
+        applyChartTheme(m_airMetricsChartView->chart());
+    }
+    if (m_windMetricsChartView && m_windMetricsChartView->chart()) {
+        applyChartTheme(m_windMetricsChartView->chart());
     }
 }

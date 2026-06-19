@@ -47,8 +47,10 @@ void NetworkManager::fetchCurrentWeather(const QString& cityId, double latitude,
     query.addQueryItem("latitude", QString::number(latitude, 'f', 6));
     query.addQueryItem("longitude", QString::number(longitude, 'f', 6));
     query.addQueryItem("current", "temperature_2m,relative_humidity_2m,apparent_temperature,pressure_msl,wind_speed_10m,wind_direction_10m,weather_code");
+    query.addQueryItem("hourly", "temperature_2m,relative_humidity_2m,apparent_temperature,pressure_msl,wind_speed_10m,wind_direction_10m");
     query.addQueryItem("timezone", "auto");
     query.addQueryItem("forecast_days", "1");
+    query.addQueryItem("forecast_hours", "24");
     query.addQueryItem("wind_speed_unit", "kmh");
     
     url.setQuery(query);
