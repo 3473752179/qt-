@@ -12,6 +12,8 @@
 #include <QTableView>
 #include <QByteArray>
 #include <QTimer>
+#include <QtCharts/QChart>
+#include <QtCharts/QChartView>
 #include "citymodel.h"
 #include "weathermodel.h"
 #include "forecastmodel.h"
@@ -49,6 +51,9 @@ private:
     void setupConnections();
     void loadFavoriteCities();
     void updateCurrentDateTime();
+    void updateTrendChart(ForecastModel* forecast);
+    void applyChartTheme(QChart* chart);
+    int parseWindPowerValue(const QString& windPower) const;
     
     // --- 数据解析 ---
     WeatherType parseChineseWeather(const QString& weather);
@@ -90,6 +95,8 @@ private:
     // --- 预报面板控件 ---
     QWidget *m_forecastPanel;
     QHBoxLayout *m_forecastLayout;
+    QWidget *m_trendPanel;
+    QChartView *m_trendChartView;
 
     // --- 状态变量 ---
     bool m_isDarkTheme;

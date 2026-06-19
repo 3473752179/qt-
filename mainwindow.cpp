@@ -12,6 +12,12 @@
 #include <QJsonDocument>
 #include <QJsonObject>
 #include <QJsonArray>
+#include <QRegularExpression>
+#include <limits>
+#include <QtCharts/QChart>
+#include <QtCharts/QLineSeries>
+#include <QtCharts/QValueAxis>
+#include <QtCharts/QBarCategoryAxis>
 
 // ==================== 成员3：数据解析与界面模块 ====================
 // 负责JSON数据解析、UI显示、用户交互、主题切换
@@ -175,6 +181,25 @@ void MainWindow::setupUI()
 
     contentLayout->addWidget(m_forecastPanel, 1);
 
+    m_trendPanel = new QWidget();
+    QVBoxLayout *trendLayout = new QVBoxLayout(m_trendPanel);
+    trendLayout->setContentsMargins(0, 0, 0, 0);
+    trendLayout->setSpacing(8);
+
+    QLabel *trendTitleLabel = new QLabel("天气趋势图");
+    QFont trendTitleFont = trendTitleLabel->font();
+    trendTitleFont.setPointSize(12);
+    trendTitleFont.setBold(true);
+    trendTitleLabel->setFont(trendTitleFont);
+    trendLayout->addWidget(trendTitleLabel);
+
+    m_trendChartView = new QChartView();
+    m_trendChartView->setMinimumHeight(260);
+    m_trendChartView->setRenderHint(QPainter::Antialiasing);
+    trendLayout->addWidget(m_trendChartView);
+
+    contentLayout->addWidget(m_trendPanel, 1);
+
     // --- 添加主布局 ---
     mainLayout->addWidget(m_sidebar);
     mainLayout->addWidget(m_mainContent, 1);
@@ -240,6 +265,144 @@ void MainWindow::updateCurrentDateTime()
     m_currentDateLabel->setText(QString("%1 %2")
                                     .arg(currentDateTime.toString("yyyy-MM-dd"))
                                     .arg(kWeekdays.at(currentDateTime.date().dayOfWeek() % 7)));
+}
+
+int MainWindow::parseWindPowerValue(const QString& windPower) const
+{
+    const QRegularExpression numberPattern("(\\d+)");
+    QRegularExpressionMatchIterator iterator = numberPattern.globalMatch(windPower);
+    QList<int> values;
+
+    while (iterator.hasNext()) {
+        const QRegularExpressionMatch match = iterator.next();
+        values.append(match.captured(1).toInt());
+    }
+
+    if (values.isEmpty()) {
+        return -1;
+    }
+
+    if (values.size() == 1) {
+        return values.first();
+    }
+
+    return (values.first() + values.last()) / 2;
+}
+
+void MainWindow::applyChartTheme(QChart *chart)
+{
+    if (!chart) {
+        return;
+    }
+
+    const QColor textColor = m_isDarkTheme ? QColor("#ffffff") : QColor("#333333");
+    const QColor gridColor = m_isDarkTheme ? QColor(255, 255, 255, 60) : QColor(0, 0, 0, 45);
+
+    chart->setBackgroundVisible(false);
+    chart->setPlotAreaBackgroundVisible(false);
+    chart->setTitleBrush(QBrush(textColor));
+
+    if (chart->legend()) {
+        chart->legend()->setLabelColor(textColor);
+    }
+
+    const auto axes = chart->axes();
+    for (QAbstractAxis *axis : axes) {
+        axis->setLabelsColor(textColor);
+        axis->setLinePenColor(gridColor);
+        axis->setGridLineColor(gridColor);
+        axis->setMinorGridLineColor(gridColor);
+        axis->setTitleBrush(QBrush(textColor));
+    }
+}
+
+void MainWindow::updateTrendChart(ForecastModel *forecast)
+{
+    QChart *chart = new QChart();
+    chart->setTitle("未来天气趋势");
+    chart->legend()->setVisible(true);
+    chart->legend()->setAlignment(Qt::AlignBottom);
+
+    QLineSeries *maxTempSeries = new QLineSeries();
+    maxTempSeries->setName("最高温");
+    maxTempSeries->setColor(QColor("#e76f51"));
+    maxTempSeries->setPointsVisible(true);
+
+    QLineSeries *minTempSeries = new QLineSeries();
+    minTempSeries->setName("最低温");
+    minTempSeries->setColor(QColor("#3a86ff"));
+    minTempSeries->setPointsVisible(true);
+
+    QLineSeries *windSeries = new QLineSeries();
+    windSeries->setName("风力等级");
+    windSeries->setColor(QColor("#2a9d8f"));
+    windSeries->setPointsVisible(true);
+    windSeries->setPen(QPen(QColor("#2a9d8f"), 2, Qt::DashLine));
+
+    QStringList categories;
+    double minTemperature = std::numeric_limits<double>::max();
+    double maxTemperature = std::numeric_limits<double>::lowest();
+    int maxWindValue = 0;
+    bool hasWindSeries = false;
+
+    for (int i = 0; i < qMin(forecast->forecastDays(), 7); ++i) {
+        DailyForecast *day = forecast->forecastAt(i);
+        if (!day) {
+            continue;
+        }
+
+        const QString dayName = i == 0 ? "今天" : day->date().toString("MM-dd");
+        categories << dayName;
+
+        const double highTemp = day->maxTemperature();
+        const double lowTemp = day->minTemperature();
+        maxTempSeries->append(i, highTemp);
+        minTempSeries->append(i, lowTemp);
+
+        minTemperature = qMin(minTemperature, qMin(highTemp, lowTemp));
+        maxTemperature = qMax(maxTemperature, qMax(highTemp, lowTemp));
+
+        const int windValue = parseWindPowerValue(day->dayPower());
+        if (windValue >= 0) {
+            windSeries->append(i, windValue);
+            maxWindValue = qMax(maxWindValue, windValue);
+            hasWindSeries = true;
+        }
+    }
+
+    chart->addSeries(maxTempSeries);
+    chart->addSeries(minTempSeries);
+
+    QBarCategoryAxis *axisX = new QBarCategoryAxis();
+    axisX->append(categories);
+    chart->addAxis(axisX, Qt::AlignBottom);
+    maxTempSeries->attachAxis(axisX);
+    minTempSeries->attachAxis(axisX);
+
+    QValueAxis *tempAxis = new QValueAxis();
+    tempAxis->setTitleText("温度 (°C)");
+    tempAxis->setLabelFormat("%.0f");
+    tempAxis->setRange(minTemperature - 2, maxTemperature + 2);
+    chart->addAxis(tempAxis, Qt::AlignLeft);
+    maxTempSeries->attachAxis(tempAxis);
+    minTempSeries->attachAxis(tempAxis);
+
+    if (hasWindSeries) {
+        chart->addSeries(windSeries);
+        windSeries->attachAxis(axisX);
+
+        QValueAxis *windAxis = new QValueAxis();
+        windAxis->setTitleText("风力 (级)");
+        windAxis->setLabelFormat("%d");
+        windAxis->setRange(0, qMax(3, maxWindValue + 1));
+        chart->addAxis(windAxis, Qt::AlignRight);
+        windSeries->attachAxis(windAxis);
+    } else {
+        delete windSeries;
+    }
+
+    applyChartTheme(chart);
+    m_trendChartView->setChart(chart);
 }
 
 void MainWindow::onCitySelected(CityModel *city)
@@ -468,6 +631,7 @@ void MainWindow::onForecastDataReceived(const QByteArray& data, const QString& c
     ForecastModel* forecast = parseForecast(data, cityId);
     if (forecast) {
         updateForecastDisplay(forecast);
+        updateTrendChart(forecast);
         DataManager::instance().cacheForecastData(forecast->cityId(), forecast);
         delete forecast;
     }
@@ -653,5 +817,9 @@ void MainWindow::applyTheme(bool isDark)
                       "QPushButton:hover { background-color: #357abd; }"
                       "QLabel { color: #333333; }");
         m_themeButton->setText("🌙");
+    }
+
+    if (m_trendChartView && m_trendChartView->chart()) {
+        applyChartTheme(m_trendChartView->chart());
     }
 }
