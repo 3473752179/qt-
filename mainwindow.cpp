@@ -217,12 +217,21 @@ void MainWindow::setupUI()
     m_tempMetricsChartView->setMinimumHeight(260);
     m_tempMetricsChartView->setMinimumWidth(1450);
     m_tempMetricsChartView->setRenderHint(QPainter::Antialiasing);
+    m_tempMetricsChartView->setFrameShape(QFrame::NoFrame);
+    m_tempMetricsChartView->setStyleSheet("background: transparent; border: none;");
+    m_tempMetricsChartView->setBackgroundBrush(Qt::NoBrush);
+    m_tempMetricsChartView->viewport()->setAutoFillBackground(false);
+    m_tempMetricsChartView->viewport()->setStyleSheet("background: transparent;");
+    m_tempMetricsChartView->setAttribute(Qt::WA_TranslucentBackground);
     m_tempMetricsScrollArea = new QScrollArea();
     m_tempMetricsScrollArea->setWidgetResizable(false);
     m_tempMetricsScrollArea->setFrameShape(QFrame::NoFrame);
     m_tempMetricsScrollArea->setHorizontalScrollBarPolicy(Qt::ScrollBarAsNeeded);
     m_tempMetricsScrollArea->setVerticalScrollBarPolicy(Qt::ScrollBarAlwaysOff);
     m_tempMetricsScrollArea->setMinimumHeight(290);
+    m_tempMetricsScrollArea->setStyleSheet("background: transparent; border: none;");
+    m_tempMetricsScrollArea->viewport()->setAutoFillBackground(false);
+    m_tempMetricsScrollArea->viewport()->setStyleSheet("background: transparent;");
     m_tempMetricsScrollArea->setWidget(m_tempMetricsChartView);
     currentMetricsLayout->addWidget(m_tempMetricsScrollArea);
 
@@ -230,12 +239,21 @@ void MainWindow::setupUI()
     m_airMetricsChartView->setMinimumHeight(260);
     m_airMetricsChartView->setMinimumWidth(1450);
     m_airMetricsChartView->setRenderHint(QPainter::Antialiasing);
+    m_airMetricsChartView->setFrameShape(QFrame::NoFrame);
+    m_airMetricsChartView->setStyleSheet("background: transparent; border: none;");
+    m_airMetricsChartView->setBackgroundBrush(Qt::NoBrush);
+    m_airMetricsChartView->viewport()->setAutoFillBackground(false);
+    m_airMetricsChartView->viewport()->setStyleSheet("background: transparent;");
+    m_airMetricsChartView->setAttribute(Qt::WA_TranslucentBackground);
     m_airMetricsScrollArea = new QScrollArea();
     m_airMetricsScrollArea->setWidgetResizable(false);
     m_airMetricsScrollArea->setFrameShape(QFrame::NoFrame);
     m_airMetricsScrollArea->setHorizontalScrollBarPolicy(Qt::ScrollBarAsNeeded);
     m_airMetricsScrollArea->setVerticalScrollBarPolicy(Qt::ScrollBarAlwaysOff);
     m_airMetricsScrollArea->setMinimumHeight(290);
+    m_airMetricsScrollArea->setStyleSheet("background: transparent; border: none;");
+    m_airMetricsScrollArea->viewport()->setAutoFillBackground(false);
+    m_airMetricsScrollArea->viewport()->setStyleSheet("background: transparent;");
     m_airMetricsScrollArea->setWidget(m_airMetricsChartView);
     currentMetricsLayout->addWidget(m_airMetricsScrollArea);
 
@@ -243,12 +261,21 @@ void MainWindow::setupUI()
     m_windMetricsChartView->setMinimumHeight(260);
     m_windMetricsChartView->setMinimumWidth(1450);
     m_windMetricsChartView->setRenderHint(QPainter::Antialiasing);
+    m_windMetricsChartView->setFrameShape(QFrame::NoFrame);
+    m_windMetricsChartView->setStyleSheet("background: transparent; border: none;");
+    m_windMetricsChartView->setBackgroundBrush(Qt::NoBrush);
+    m_windMetricsChartView->viewport()->setAutoFillBackground(false);
+    m_windMetricsChartView->viewport()->setStyleSheet("background: transparent;");
+    m_windMetricsChartView->setAttribute(Qt::WA_TranslucentBackground);
     m_windMetricsScrollArea = new QScrollArea();
     m_windMetricsScrollArea->setWidgetResizable(false);
     m_windMetricsScrollArea->setFrameShape(QFrame::NoFrame);
     m_windMetricsScrollArea->setHorizontalScrollBarPolicy(Qt::ScrollBarAsNeeded);
     m_windMetricsScrollArea->setVerticalScrollBarPolicy(Qt::ScrollBarAlwaysOff);
     m_windMetricsScrollArea->setMinimumHeight(290);
+    m_windMetricsScrollArea->setStyleSheet("background: transparent; border: none;");
+    m_windMetricsScrollArea->viewport()->setAutoFillBackground(false);
+    m_windMetricsScrollArea->viewport()->setStyleSheet("background: transparent;");
     m_windMetricsScrollArea->setWidget(m_windMetricsChartView);
     currentMetricsLayout->addWidget(m_windMetricsScrollArea);
 
@@ -279,6 +306,10 @@ void MainWindow::setupUI()
     m_trendChartView = new QChartView();
     m_trendChartView->setMinimumHeight(260);
     m_trendChartView->setRenderHint(QPainter::Antialiasing);
+    m_trendChartView->setFrameShape(QFrame::NoFrame);
+    m_trendChartView->setStyleSheet("background: transparent; border: none;");
+    m_trendChartView->setBackgroundBrush(Qt::NoBrush);
+    m_trendChartView->viewport()->setAutoFillBackground(false);
     trendLayout->addWidget(m_trendChartView);
 
     contentLayout->addWidget(m_trendPanel, 1);
@@ -535,10 +566,18 @@ void MainWindow::applyChartTheme(QChart *chart)
     }
 
     const QColor textColor = m_isDarkTheme ? QColor("#ffffff") : QColor("#333333");
-    const QColor gridColor = m_isDarkTheme ? QColor(255, 255, 255, 60) : QColor(0, 0, 0, 45);
+    const QColor gridColor = m_isDarkTheme ? QColor(255, 255, 255, 72) : QColor(0, 0, 0, 58);
+    const QColor plotFillColor = m_isDarkTheme
+        ? QColor(9, 15, 28, 44)
+        : QColor(255, 255, 255, 76);
+    const QColor plotBorderColor = m_isDarkTheme
+        ? QColor(255, 255, 255, 26)
+        : QColor(255, 255, 255, 90);
 
     chart->setBackgroundVisible(false);
-    chart->setPlotAreaBackgroundVisible(false);
+    chart->setPlotAreaBackgroundVisible(true);
+    chart->setPlotAreaBackgroundBrush(QBrush(plotFillColor));
+    chart->setPlotAreaBackgroundPen(QPen(plotBorderColor, 1));
     chart->setTitleBrush(QBrush(textColor));
 
     if (chart->legend()) {
