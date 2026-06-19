@@ -38,15 +38,18 @@ NetworkManager& NetworkManager::instance()
 
 // ==================== 网络请求接口 ====================
 
-void NetworkManager::fetchCurrentWeather(const QString& cityId)
+void NetworkManager::fetchCurrentWeather(const QString& cityId, double latitude, double longitude)
 {
     emit loadingStarted();
     
-    QUrl url("https://restapi.amap.com/v3/weather/weatherInfo");
+    QUrl url("https://api.open-meteo.com/v1/forecast");
     QUrlQuery query;
-    query.addQueryItem("city", cityId);
-    query.addQueryItem("key", m_apiKey);
-    query.addQueryItem("extensions", "base");
+    query.addQueryItem("latitude", QString::number(latitude, 'f', 6));
+    query.addQueryItem("longitude", QString::number(longitude, 'f', 6));
+    query.addQueryItem("current", "temperature_2m,relative_humidity_2m,apparent_temperature,pressure_msl,wind_speed_10m,wind_direction_10m,weather_code");
+    query.addQueryItem("timezone", "auto");
+    query.addQueryItem("forecast_days", "1");
+    query.addQueryItem("wind_speed_unit", "kmh");
     
     url.setQuery(query);
     

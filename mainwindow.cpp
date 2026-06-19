@@ -289,6 +289,79 @@ int MainWindow::parseWindPowerValue(const QString& windPower) const
     return (values.first() + values.last()) / 2;
 }
 
+WeatherType MainWindow::parseWeatherCode(int weatherCode) const
+{
+    if (weatherCode == 0) return WeatherType::Sunny;
+    if (weatherCode == 1 || weatherCode == 2) return WeatherType::Cloudy;
+    if (weatherCode == 3) return WeatherType::Overcast;
+    if (weatherCode == 45 || weatherCode == 48) return WeatherType::Fog;
+    if ((weatherCode >= 51 && weatherCode <= 67) || (weatherCode >= 80 && weatherCode <= 82)) {
+        return weatherCode >= 65 ? WeatherType::HeavyRain : WeatherType::LightRain;
+    }
+    if (weatherCode >= 71 && weatherCode <= 77) {
+        return weatherCode >= 75 ? WeatherType::HeavySnow : WeatherType::LightSnow;
+    }
+    if (weatherCode >= 95) return WeatherType::Thunderstorm;
+    return WeatherType::Unknown;
+}
+
+QString MainWindow::weatherDescriptionFromCode(int weatherCode) const
+{
+    switch (weatherCode) {
+    case 0: return "晴";
+    case 1: return "晴间多云";
+    case 2: return "多云";
+    case 3: return "阴";
+    case 45:
+    case 48:
+        return "雾";
+    case 51:
+    case 53:
+    case 55:
+    case 56:
+    case 57:
+        return "毛毛雨";
+    case 61:
+    case 63:
+        return "雨";
+    case 65:
+    case 66:
+    case 67:
+        return "大雨";
+    case 71:
+    case 73:
+        return "雪";
+    case 75:
+    case 77:
+        return "大雪";
+    case 80:
+    case 81:
+    case 82:
+        return "阵雨";
+    case 85:
+    case 86:
+        return "阵雪";
+    case 95:
+    case 96:
+    case 99:
+        return "雷暴";
+    default:
+        return "未知";
+    }
+}
+
+WindDirection MainWindow::parseWindDirection(double windDirectionDegrees) const
+{
+    if (windDirectionDegrees < 22.5 || windDirectionDegrees >= 337.5) return WindDirection::N;
+    if (windDirectionDegrees < 67.5) return WindDirection::NE;
+    if (windDirectionDegrees < 112.5) return WindDirection::E;
+    if (windDirectionDegrees < 157.5) return WindDirection::SE;
+    if (windDirectionDegrees < 202.5) return WindDirection::S;
+    if (windDirectionDegrees < 247.5) return WindDirection::SW;
+    if (windDirectionDegrees < 292.5) return WindDirection::W;
+    return WindDirection::NW;
+}
+
 void MainWindow::applyChartTheme(QChart *chart)
 {
     if (!chart) {
@@ -412,7 +485,7 @@ void MainWindow::onCitySelected(CityModel *city)
 
     m_cityLabel->setText(city->name());
     CityManager::instance().setCurrentCity(city);
-    NetworkManager::instance().fetchCurrentWeather(city->id());
+    NetworkManager::instance().fetchCurrentWeather(city->id(), city->latitude(), city->longitude());
     NetworkManager::instance().fetchForecast(city->id());
 }
 
@@ -515,37 +588,38 @@ WeatherModel* MainWindow::parseCurrentWeather(const QByteArray& data, const QStr
     if (!doc.isObject()) return nullptr;
 
     QJsonObject obj = doc.object();
-
-    if (obj["status"].toString() != "1") {
-        qWarning() << "Amap API error:" << obj["info"].toString();
+    QJsonObject current = obj["current"].toObject();
+    if (current.isEmpty()) {
+        qWarning() << "Open-Meteo API error: missing current field";
         return nullptr;
     }
 
-    QJsonArray lives = obj["lives"].toArray();
-    if (lives.isEmpty()) return nullptr;
-
-    QJsonObject live = lives[0].toObject();
-
     WeatherModel* weather = new WeatherModel();
     weather->setCityId(cityId);
-    weather->setCityName(live["city"].toString());
 
-    QString tempStr = live["temperature"].toString();
-    weather->setTemperature(tempStr.toDouble());
+    CityModel *currentCity = CityManager::instance().currentCity();
+    if (currentCity && currentCity->id() == cityId) {
+        weather->setCityName(currentCity->name());
+    } else {
+        weather->setCityName(cityId);
+    }
 
-    QString humidityStr = live["humidity"].toString();
-    weather->setHumidity(humidityStr.toInt());
+    const double temperature = current["temperature_2m"].toDouble();
+    const double apparentTemperature = current["apparent_temperature"].toDouble(temperature);
+    const int humidity = current["relative_humidity_2m"].toInt();
+    const int windSpeed = qRound(current["wind_speed_10m"].toDouble());
+    const double windDirectionDegrees = current["wind_direction_10m"].toDouble();
+    const int pressure = qRound(current["pressure_msl"].toDouble());
+    const int weatherCode = current["weather_code"].toInt(-1);
 
-    QString windStr = live["windpower"].toString();
-    windStr.replace("≤", "");
-    windStr.replace("级", "");
-    weather->setWindSpeed(windStr.toInt());
-
-    weather->setFeelsLike(tempStr.toDouble());
-    weather->setPressure(1013);
-
-    weather->setWeatherDescription(live["weather"].toString());
-    weather->setWeatherType(parseChineseWeather(live["weather"].toString()));
+    weather->setTemperature(temperature);
+    weather->setFeelsLike(apparentTemperature);
+    weather->setHumidity(humidity);
+    weather->setWindSpeed(windSpeed);
+    weather->setWindDirection(parseWindDirection(windDirectionDegrees));
+    weather->setPressure(pressure);
+    weather->setWeatherDescription(weatherDescriptionFromCode(weatherCode));
+    weather->setWeatherType(parseWeatherCode(weatherCode));
     weather->setUpdateTime(QDateTime::currentDateTime());
 
     qDebug() << "Parsed weather:" << weather->cityName() << weather->temperature() << "°C";
@@ -644,7 +718,9 @@ void MainWindow::updateWeatherDisplay(WeatherModel *weather)
     m_humidityLabel->setText(QString("湿度: %1%").arg(weather->humidity()));
     m_windLabel->setText(QString("风速: %1 km/h").arg(weather->windSpeed()));
     m_pressureLabel->setText(QString("气压: %1 hPa").arg(weather->pressure()));
-    m_descLabel->setText(weatherTypeToString(weather->weatherType()));
+    m_descLabel->setText(weather->weatherDescription().isEmpty()
+                             ? weatherTypeToString(weather->weatherType())
+                             : weather->weatherDescription());
 
     QString weatherIcon = "☀";
     switch (weather->weatherType()) {

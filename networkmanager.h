@@ -18,7 +18,7 @@ public:
     static NetworkManager& instance();
     
     // --- 网络请求接口 ---
-    void fetchCurrentWeather(const QString& cityId);
+    void fetchCurrentWeather(const QString& cityId, double latitude, double longitude);
     void fetchForecast(const QString& cityId);
     
     // --- API配置 ---

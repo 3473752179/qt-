@@ -54,6 +54,9 @@ private:
     void updateTrendChart(ForecastModel* forecast);
     void applyChartTheme(QChart* chart);
     int parseWindPowerValue(const QString& windPower) const;
+    WeatherType parseWeatherCode(int weatherCode) const;
+    QString weatherDescriptionFromCode(int weatherCode) const;
+    WindDirection parseWindDirection(double windDirectionDegrees) const;
     
     // --- 数据解析 ---
     WeatherType parseChineseWeather(const QString& weather);
