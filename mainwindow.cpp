@@ -26,7 +26,10 @@
 // ==================== 构造与初始化 ====================
 
 MainWindow::MainWindow(QWidget *parent)
-    : QMainWindow(parent), m_isDarkTheme(false), m_clockTimer(nullptr)
+    : QMainWindow(parent),
+      m_isDarkTheme(false),
+      m_currentWeatherType(WeatherType::Unknown),
+      m_clockTimer(nullptr)
 {
     setupUI();
     setupConnections();
@@ -62,6 +65,7 @@ void MainWindow::setupUI()
 
     // --- 侧边栏 ---
     m_sidebar = new QWidget();
+    m_sidebar->setObjectName("sidebar");
     m_sidebar->setFixedWidth(200);
     QVBoxLayout *sidebarLayout = new QVBoxLayout(m_sidebar);
     sidebarLayout->setContentsMargins(10, 10, 10, 10);
@@ -82,15 +86,18 @@ void MainWindow::setupUI()
 
     // --- 主内容区域 ---
     m_mainContent = new QWidget();
+    m_mainContent->setObjectName("mainContent");
     QVBoxLayout *contentLayout = new QVBoxLayout(m_mainContent);
     contentLayout->setContentsMargins(20, 20, 20, 20);
     contentLayout->setSpacing(15);
 
     m_mainScrollArea = new QScrollArea();
+    m_mainScrollArea->setObjectName("mainScrollArea");
     m_mainScrollArea->setWidgetResizable(true);
     m_mainScrollArea->setFrameShape(QFrame::NoFrame);
     m_mainScrollArea->setHorizontalScrollBarPolicy(Qt::ScrollBarAlwaysOff);
     m_mainScrollArea->setVerticalScrollBarPolicy(Qt::ScrollBarAsNeeded);
+    m_mainScrollArea->viewport()->setAutoFillBackground(false);
     m_mainScrollArea->setWidget(m_mainContent);
 
     // --- 标题栏 ---
@@ -141,6 +148,7 @@ void MainWindow::setupUI()
 
     // --- 天气面板 ---
     m_weatherPanel = new QWidget();
+    m_weatherPanel->setObjectName("weatherPanel");
     QGridLayout *weatherLayout = new QGridLayout(m_weatherPanel);
     weatherLayout->setSpacing(15);
 
@@ -188,6 +196,7 @@ void MainWindow::setupUI()
     contentLayout->addWidget(m_weatherPanel);
 
     m_currentMetricsPanel = new QWidget();
+    m_currentMetricsPanel->setObjectName("currentMetricsPanel");
     QVBoxLayout *currentMetricsLayout = new QVBoxLayout(m_currentMetricsPanel);
     currentMetricsLayout->setContentsMargins(0, 0, 0, 0);
     currentMetricsLayout->setSpacing(8);
@@ -242,6 +251,7 @@ void MainWindow::setupUI()
 
     // --- 预报面板 ---
     m_forecastPanel = new QWidget();
+    m_forecastPanel->setObjectName("forecastPanel");
     m_forecastLayout = new QHBoxLayout(m_forecastPanel);
     m_forecastLayout->setSpacing(10);
     m_forecastLayout->setAlignment(Qt::AlignLeft);
@@ -249,6 +259,7 @@ void MainWindow::setupUI()
     contentLayout->addWidget(m_forecastPanel, 1);
 
     m_trendPanel = new QWidget();
+    m_trendPanel->setObjectName("trendPanel");
     QVBoxLayout *trendLayout = new QVBoxLayout(m_trendPanel);
     trendLayout->setContentsMargins(0, 0, 0, 0);
     trendLayout->setSpacing(8);
@@ -383,6 +394,71 @@ QString MainWindow::airQualityLevelToString(AirQualityLevel level) const
     default:
         return "未知";
     }
+}
+
+QString MainWindow::weatherBackgroundStyle(WeatherType weatherType) const
+{
+    QString gradientStart = m_isDarkTheme ? "#25364a" : "#d7ecff";
+    QString gradientEnd = m_isDarkTheme ? "#1d2530" : "#f5f9ff";
+
+    switch (weatherType) {
+    case WeatherType::Sunny:
+        gradientStart = m_isDarkTheme ? "#304a73" : "#8ec5ff";
+        gradientEnd = m_isDarkTheme ? "#1f2e4a" : "#f8e18a";
+        break;
+    case WeatherType::Cloudy:
+        gradientStart = m_isDarkTheme ? "#42556e" : "#c8d6e5";
+        gradientEnd = m_isDarkTheme ? "#273241" : "#eef3f8";
+        break;
+    case WeatherType::Overcast:
+        gradientStart = m_isDarkTheme ? "#48505c" : "#b8c1cc";
+        gradientEnd = m_isDarkTheme ? "#2c3138" : "#e4e7eb";
+        break;
+    case WeatherType::LightRain:
+    case WeatherType::HeavyRain:
+    case WeatherType::Thunderstorm:
+        gradientStart = m_isDarkTheme ? "#2f4f6a" : "#8db3d3";
+        gradientEnd = m_isDarkTheme ? "#1a2735" : "#dbe9f4";
+        break;
+    case WeatherType::LightSnow:
+    case WeatherType::HeavySnow:
+        gradientStart = m_isDarkTheme ? "#506070" : "#e3eef8";
+        gradientEnd = m_isDarkTheme ? "#293744" : "#ffffff";
+        break;
+    case WeatherType::Fog:
+        gradientStart = m_isDarkTheme ? "#5c6670" : "#d5dadd";
+        gradientEnd = m_isDarkTheme ? "#32383e" : "#f3f5f6";
+        break;
+    default:
+        break;
+    }
+
+    const QString panelBackground = m_isDarkTheme
+        ? "rgba(15, 23, 42, 0.42)"
+        : "rgba(255, 255, 255, 0.68)";
+    const QString borderColor = m_isDarkTheme
+        ? "rgba(255, 255, 255, 0.10)"
+        : "rgba(255, 255, 255, 0.38)";
+
+    return QString(
+               "QWidget#mainContent {"
+               "background-color: qlineargradient(x1:0, y1:0, x2:1, y2:1, stop:0 %1, stop:1 %2);"
+               "border-radius: 18px;"
+               "}"
+               "QScrollArea#mainScrollArea { background: transparent; border: none; }"
+               "QWidget#qt_scrollarea_viewport { background: transparent; }"
+               "QWidget#weatherPanel, QWidget#currentMetricsPanel, QWidget#forecastPanel, QWidget#trendPanel {"
+               "background-color: %3;"
+               "border: 1px solid %4;"
+               "border-radius: 14px;"
+               "}"
+               ).arg(gradientStart, gradientEnd, panelBackground, borderColor);
+}
+
+void MainWindow::applyWeatherBackground(WeatherType weatherType)
+{
+    m_currentWeatherType = weatherType;
+    applyTheme(m_isDarkTheme);
 }
 
 WeatherType MainWindow::parseWeatherCode(int weatherCode) const
@@ -1090,6 +1166,7 @@ void MainWindow::updateWeatherDisplay(WeatherModel *weather)
         weatherIcon = "☀";
     }
     m_weatherIconLabel->setText(weatherIcon);
+    applyWeatherBackground(weather->weatherType());
 }
 
 void MainWindow::updateForecastDisplay(ForecastModel *forecast)
@@ -1206,29 +1283,36 @@ void MainWindow::applyTheme(bool isDark)
 {
     m_isDarkTheme = isDark;
 
+    QString baseStyle;
     if (isDark) {
-        setStyleSheet("QMainWindow { background-color: #1a1a1a; }"
-                      "QWidget { color: #ffffff; }"
-                      "QLineEdit { background-color: #333; color: #fff; border: 1px solid #555; padding: 5px; border-radius: 3px; }"
-                      "QListWidget { background-color: #333; border: 1px solid #555; color: #ffffff; }"
-                      "QListWidget::item:hover { background-color: #4a5568; }"
-                      "QListWidget::item:selected { background-color: #4a90d9; color: white; }"
-                      "QPushButton { background-color: #4a90d9; color: white; border: none; padding: 6px 12px; border-radius: 3px; }"
-                      "QPushButton:hover { background-color: #357abd; }"
-                      "QLabel { color: #ffffff; }");
+        baseStyle =
+            "QMainWindow { background-color: #1a1a1a; }"
+            "QWidget { color: #ffffff; }"
+            "QWidget#sidebar { background-color: #202833; border-radius: 12px; }"
+            "QLineEdit { background-color: #333; color: #fff; border: 1px solid #555; padding: 5px; border-radius: 3px; }"
+            "QListWidget { background-color: #333; border: 1px solid #555; color: #ffffff; }"
+            "QListWidget::item:hover { background-color: #4a5568; }"
+            "QListWidget::item:selected { background-color: #4a90d9; color: white; }"
+            "QPushButton { background-color: #4a90d9; color: white; border: none; padding: 6px 12px; border-radius: 3px; }"
+            "QPushButton:hover { background-color: #357abd; }"
+            "QLabel { color: #ffffff; }";
         m_themeButton->setText("☀");
     } else {
-        setStyleSheet("QMainWindow { background-color: #f5f5f5; }"
-                      "QWidget { color: #333333; }"
-                      "QLineEdit { background-color: #ffffff; border: 1px solid #ccc; padding: 5px; border-radius: 3px; }"
-                      "QListWidget { background-color: #ffffff; border: 1px solid #e0e0e0; }"
-                      "QListWidget::item:hover { background-color: #e8f0fe; }"
-                      "QListWidget::item:selected { background-color: #4a90d9; color: white; }"
-                      "QPushButton { background-color: #4a90d9; color: white; border: none; padding: 6px 12px; border-radius: 3px; }"
-                      "QPushButton:hover { background-color: #357abd; }"
-                      "QLabel { color: #333333; }");
+        baseStyle =
+            "QMainWindow { background-color: #f5f5f5; }"
+            "QWidget { color: #333333; }"
+            "QWidget#sidebar { background-color: #f2f5f9; border: 1px solid #e4ebf2; border-radius: 12px; }"
+            "QLineEdit { background-color: #ffffff; border: 1px solid #ccc; padding: 5px; border-radius: 3px; }"
+            "QListWidget { background-color: #ffffff; border: 1px solid #e0e0e0; }"
+            "QListWidget::item:hover { background-color: #e8f0fe; }"
+            "QListWidget::item:selected { background-color: #4a90d9; color: white; }"
+            "QPushButton { background-color: #4a90d9; color: white; border: none; padding: 6px 12px; border-radius: 3px; }"
+            "QPushButton:hover { background-color: #357abd; }"
+            "QLabel { color: #333333; }";
         m_themeButton->setText("🌙");
     }
+
+    setStyleSheet(baseStyle + weatherBackgroundStyle(m_currentWeatherType));
 
     if (m_trendChartView && m_trendChartView->chart()) {
         applyChartTheme(m_trendChartView->chart());

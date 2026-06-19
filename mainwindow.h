@@ -56,6 +56,8 @@ private:
     void updateTrendChart(ForecastModel* forecast);
     void updateCurrentMetricsCharts(const QByteArray& data);
     void applyChartTheme(QChart* chart);
+    void applyWeatherBackground(WeatherType weatherType);
+    QString weatherBackgroundStyle(WeatherType weatherType) const;
     int parseWindPowerValue(const QString& windPower) const;
     AirQualityLevel parseAirQualityLevel(int aqi) const;
     QString airQualityLevelToString(AirQualityLevel level) const;
@@ -118,6 +120,7 @@ private:
 
     // --- 状态变量 ---
     bool m_isDarkTheme;
+    WeatherType m_currentWeatherType;
     QTimer *m_clockTimer;
 };
 
