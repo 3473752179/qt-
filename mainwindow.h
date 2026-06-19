@@ -14,6 +14,7 @@
 #include <QTimer>
 #include <QScrollArea>
 #include <QEvent>
+#include <QPoint>
 #include <QtCharts/QChart>
 #include <QtCharts/QChartView>
 #include "citymodel.h"
@@ -36,6 +37,7 @@ public:
 
 protected:
     bool eventFilter(QObject *watched, QEvent *event) override;
+    void changeEvent(QEvent *event) override;
 
 private slots:
     // --- 用户交互槽函数 ---
@@ -44,6 +46,9 @@ private slots:
     void onRemoveCityClicked();
     void onThemeToggleClicked();
     void onSettingsClicked();
+    void onMinimizeClicked();
+    void onMaximizeRestoreClicked();
+    void onCloseClicked();
     void onCityListItemClicked(QListWidgetItem* item);
     
     // --- 数据接收槽函数（接收原始JSON数据） ---
@@ -82,6 +87,7 @@ private:
     // --- 主题管理 ---
     void applyTheme(bool isDark);
     void updateAnimationBackgroundGeometry();
+    void updateWindowControlButtons();
 
     // --- 侧边栏控件 ---
     QWidget *m_sidebar;
@@ -94,11 +100,15 @@ private:
     QWidget *m_mainContent;
     QScrollArea *m_mainScrollArea;
     WeatherAnimationWidget *m_weatherAnimationWidget;
+    QWidget *m_titleBar;
     QLabel *m_cityLabel;
     QLabel *m_currentTimeLabel;
     QLabel *m_currentDateLabel;
     QPushButton *m_themeButton;
     QPushButton *m_settingsButton;
+    QPushButton *m_minimizeButton;
+    QPushButton *m_maximizeButton;
+    QPushButton *m_closeButton;
 
     // --- 天气面板控件 ---
     QWidget *m_weatherPanel;
@@ -127,7 +137,9 @@ private:
 
     // --- 状态变量 ---
     bool m_isDarkTheme;
+    bool m_isDraggingWindow;
     WeatherType m_currentWeatherType;
+    QPoint m_dragOffset;
     QTimer *m_clockTimer;
 };
 

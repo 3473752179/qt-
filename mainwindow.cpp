@@ -13,6 +13,7 @@
 #include <QJsonObject>
 #include <QJsonArray>
 #include <QRegularExpression>
+#include <QMouseEvent>
 #include <limits>
 #include <QtCharts/QChart>
 #include <QtCharts/QDateTimeAxis>
@@ -28,6 +29,7 @@
 MainWindow::MainWindow(QWidget *parent)
     : QMainWindow(parent),
       m_isDarkTheme(false),
+      m_isDraggingWindow(false),
       m_currentWeatherType(WeatherType::Unknown),
       m_clockTimer(nullptr)
 {
@@ -53,6 +55,7 @@ MainWindow::~MainWindow()
 
 void MainWindow::setupUI()
 {
+    setWindowFlags(Qt::FramelessWindowHint | Qt::Window);
     setWindowTitle("Weather Forecast");
     resize(900, 600);
 
@@ -106,11 +109,16 @@ void MainWindow::setupUI()
     m_mainScrollArea->setWidget(m_mainContent);
 
     // --- 标题栏 ---
-    QWidget *titleBar = new QWidget();
-    QHBoxLayout *titleLayout = new QHBoxLayout(titleBar);
+    m_titleBar = new QWidget();
+    m_titleBar->setObjectName("titleBar");
+    m_titleBar->setCursor(Qt::OpenHandCursor);
+    m_titleBar->installEventFilter(this);
+    QHBoxLayout *titleLayout = new QHBoxLayout(m_titleBar);
     titleLayout->setContentsMargins(0, 0, 0, 0);
 
     m_cityLabel = new QLabel("城市名称");
+    m_cityLabel->setCursor(Qt::OpenHandCursor);
+    m_cityLabel->installEventFilter(this);
     QFont titleFont = m_cityLabel->font();
     titleFont.setPointSize(16);
     titleFont.setBold(true);
@@ -120,11 +128,15 @@ void MainWindow::setupUI()
     titleLayout->addStretch();
 
     QWidget *dateTimeWidget = new QWidget();
+    dateTimeWidget->setCursor(Qt::OpenHandCursor);
+    dateTimeWidget->installEventFilter(this);
     QVBoxLayout *dateTimeLayout = new QVBoxLayout(dateTimeWidget);
     dateTimeLayout->setContentsMargins(0, 0, 0, 0);
     dateTimeLayout->setSpacing(2);
 
     m_currentTimeLabel = new QLabel("--:--:--");
+    m_currentTimeLabel->setCursor(Qt::OpenHandCursor);
+    m_currentTimeLabel->installEventFilter(this);
     QFont currentTimeFont = m_currentTimeLabel->font();
     currentTimeFont.setPointSize(18);
     currentTimeFont.setBold(true);
@@ -133,6 +145,8 @@ void MainWindow::setupUI()
     dateTimeLayout->addWidget(m_currentTimeLabel);
 
     m_currentDateLabel = new QLabel("----/--/-- ----");
+    m_currentDateLabel->setCursor(Qt::OpenHandCursor);
+    m_currentDateLabel->installEventFilter(this);
     QFont currentDateFont = m_currentDateLabel->font();
     currentDateFont.setPointSize(10);
     m_currentDateLabel->setFont(currentDateFont);
@@ -149,7 +163,22 @@ void MainWindow::setupUI()
     m_settingsButton->setFixedSize(32, 32);
     titleLayout->addWidget(m_settingsButton);
 
-    contentLayout->addWidget(titleBar);
+    m_minimizeButton = new QPushButton("-");
+    m_minimizeButton->setObjectName("minimizeButton");
+    m_minimizeButton->setFixedSize(36, 32);
+    titleLayout->addWidget(m_minimizeButton);
+
+    m_maximizeButton = new QPushButton("□");
+    m_maximizeButton->setObjectName("maximizeButton");
+    m_maximizeButton->setFixedSize(36, 32);
+    titleLayout->addWidget(m_maximizeButton);
+
+    m_closeButton = new QPushButton("×");
+    m_closeButton->setObjectName("closeButton");
+    m_closeButton->setFixedSize(36, 32);
+    titleLayout->addWidget(m_closeButton);
+
+    contentLayout->addWidget(m_titleBar);
 
     // --- 天气面板 ---
     m_weatherPanel = new QWidget();
@@ -320,6 +349,7 @@ void MainWindow::setupUI()
 
     // --- 应用默认主题 ---
     applyTheme(false);
+    updateWindowControlButtons();
     updateAnimationBackgroundGeometry();
 
     m_clockTimer = new QTimer(this);
@@ -339,6 +369,12 @@ void MainWindow::setupConnections()
             this, &MainWindow::onThemeToggleClicked);
     connect(m_settingsButton, &QPushButton::clicked,
             this, &MainWindow::onSettingsClicked);
+    connect(m_minimizeButton, &QPushButton::clicked,
+            this, &MainWindow::onMinimizeClicked);
+    connect(m_maximizeButton, &QPushButton::clicked,
+            this, &MainWindow::onMaximizeRestoreClicked);
+    connect(m_closeButton, &QPushButton::clicked,
+            this, &MainWindow::onCloseClicked);
     connect(m_cityListWidget, &QListWidget::itemClicked,
             this, &MainWindow::onCityListItemClicked);
     connect(m_clockTimer, &QTimer::timeout,
@@ -377,7 +413,49 @@ bool MainWindow::eventFilter(QObject *watched, QEvent *event)
         updateAnimationBackgroundGeometry();
     }
 
+    const bool isTitleBarTarget = watched == m_titleBar
+        || watched == m_cityLabel
+        || watched == m_currentTimeLabel
+        || watched == m_currentDateLabel
+        || (watched->isWidgetType() && qobject_cast<QWidget*>(watched)->parentWidget() == m_titleBar);
+
+    if (isTitleBarTarget) {
+        if (event->type() == QEvent::MouseButtonPress) {
+            QMouseEvent *mouseEvent = static_cast<QMouseEvent*>(event);
+            if (mouseEvent->button() == Qt::LeftButton) {
+                m_isDraggingWindow = true;
+                m_dragOffset = mouseEvent->globalPos() - frameGeometry().topLeft();
+                m_titleBar->setCursor(Qt::ClosedHandCursor);
+                return true;
+            }
+        } else if (event->type() == QEvent::MouseMove) {
+            QMouseEvent *mouseEvent = static_cast<QMouseEvent*>(event);
+            if (m_isDraggingWindow && (mouseEvent->buttons() & Qt::LeftButton)) {
+                move(mouseEvent->globalPos() - m_dragOffset);
+                return true;
+            }
+        } else if (event->type() == QEvent::MouseButtonRelease) {
+            QMouseEvent *mouseEvent = static_cast<QMouseEvent*>(event);
+            if (mouseEvent->button() == Qt::LeftButton) {
+                m_isDraggingWindow = false;
+                if (m_titleBar) {
+                    m_titleBar->setCursor(Qt::OpenHandCursor);
+                }
+                return true;
+            }
+        }
+    }
+
     return QMainWindow::eventFilter(watched, event);
+}
+
+void MainWindow::changeEvent(QEvent *event)
+{
+    if (event->type() == QEvent::WindowStateChange) {
+        updateWindowControlButtons();
+    }
+
+    QMainWindow::changeEvent(event);
 }
 
 void MainWindow::updateAnimationBackgroundGeometry()
@@ -388,6 +466,15 @@ void MainWindow::updateAnimationBackgroundGeometry()
 
     m_weatherAnimationWidget->setGeometry(m_mainContent->rect());
     m_weatherAnimationWidget->lower();
+}
+
+void MainWindow::updateWindowControlButtons()
+{
+    if (!m_maximizeButton) {
+        return;
+    }
+
+    m_maximizeButton->setText(isMaximized() ? "❐" : "□");
 }
 
 void MainWindow::updateCurrentDateTime()
@@ -940,6 +1027,27 @@ void MainWindow::onSettingsClicked()
     QMessageBox::information(this, "Settings", "Settings Dialog");
 }
 
+void MainWindow::onMinimizeClicked()
+{
+    showMinimized();
+}
+
+void MainWindow::onMaximizeRestoreClicked()
+{
+    if (isMaximized()) {
+        showNormal();
+    } else {
+        showMaximized();
+    }
+
+    updateWindowControlButtons();
+}
+
+void MainWindow::onCloseClicked()
+{
+    close();
+}
+
 void MainWindow::onCityListItemClicked(QListWidgetItem *item)
 {
     if (!item)
@@ -1327,12 +1435,17 @@ void MainWindow::applyTheme(bool isDark)
             "QMainWindow { background-color: #1a1a1a; }"
             "QWidget { color: #ffffff; }"
             "QWidget#sidebar { background-color: #202833; border-radius: 12px; }"
+            "QWidget#titleBar { background: transparent; }"
             "QLineEdit { background-color: #333; color: #fff; border: 1px solid #555; padding: 5px; border-radius: 3px; }"
             "QListWidget { background-color: #333; border: 1px solid #555; color: #ffffff; }"
             "QListWidget::item:hover { background-color: #4a5568; }"
             "QListWidget::item:selected { background-color: #4a90d9; color: white; }"
             "QPushButton { background-color: #4a90d9; color: white; border: none; padding: 6px 12px; border-radius: 3px; }"
             "QPushButton:hover { background-color: #357abd; }"
+            "QPushButton#minimizeButton, QPushButton#maximizeButton, QPushButton#closeButton {"
+            "background-color: transparent; border-radius: 4px; min-width: 36px; padding: 0px; }"
+            "QPushButton#minimizeButton:hover, QPushButton#maximizeButton:hover { background-color: rgba(255, 255, 255, 0.12); }"
+            "QPushButton#closeButton:hover { background-color: #e81123; }"
             "QLabel { color: #ffffff; }";
         m_themeButton->setText("☀");
     } else {
@@ -1340,12 +1453,17 @@ void MainWindow::applyTheme(bool isDark)
             "QMainWindow { background-color: #f5f5f5; }"
             "QWidget { color: #333333; }"
             "QWidget#sidebar { background-color: #f2f5f9; border: 1px solid #e4ebf2; border-radius: 12px; }"
+            "QWidget#titleBar { background: transparent; }"
             "QLineEdit { background-color: #ffffff; border: 1px solid #ccc; padding: 5px; border-radius: 3px; }"
             "QListWidget { background-color: #ffffff; border: 1px solid #e0e0e0; }"
             "QListWidget::item:hover { background-color: #e8f0fe; }"
             "QListWidget::item:selected { background-color: #4a90d9; color: white; }"
             "QPushButton { background-color: #4a90d9; color: white; border: none; padding: 6px 12px; border-radius: 3px; }"
             "QPushButton:hover { background-color: #357abd; }"
+            "QPushButton#minimizeButton, QPushButton#maximizeButton, QPushButton#closeButton {"
+            "background-color: transparent; color: #333333; border-radius: 4px; min-width: 36px; padding: 0px; }"
+            "QPushButton#minimizeButton:hover, QPushButton#maximizeButton:hover { background-color: rgba(0, 0, 0, 0.08); }"
+            "QPushButton#closeButton:hover { background-color: #e81123; color: white; }"
             "QLabel { color: #333333; }";
         m_themeButton->setText("🌙");
     }
