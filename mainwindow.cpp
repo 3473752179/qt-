@@ -87,9 +87,14 @@ void MainWindow::setupUI()
     // --- 主内容区域 ---
     m_mainContent = new QWidget();
     m_mainContent->setObjectName("mainContent");
+    m_mainContent->installEventFilter(this);
     QVBoxLayout *contentLayout = new QVBoxLayout(m_mainContent);
     contentLayout->setContentsMargins(20, 20, 20, 20);
     contentLayout->setSpacing(15);
+
+    m_weatherAnimationWidget = new WeatherAnimationWidget(m_mainContent);
+    m_weatherAnimationWidget->setObjectName("weatherAnimationWidget");
+    m_weatherAnimationWidget->lower();
 
     m_mainScrollArea = new QScrollArea();
     m_mainScrollArea->setObjectName("mainScrollArea");
@@ -284,6 +289,7 @@ void MainWindow::setupUI()
 
     // --- 应用默认主题 ---
     applyTheme(false);
+    updateAnimationBackgroundGeometry();
 
     m_clockTimer = new QTimer(this);
     m_clockTimer->setInterval(1000);
@@ -332,6 +338,25 @@ void MainWindow::loadFavoriteCities()
     for (CityModel *city : cities) {
         m_cityListWidget->addItem(city->name());
     }
+}
+
+bool MainWindow::eventFilter(QObject *watched, QEvent *event)
+{
+    if (watched == m_mainContent && event->type() == QEvent::Resize) {
+        updateAnimationBackgroundGeometry();
+    }
+
+    return QMainWindow::eventFilter(watched, event);
+}
+
+void MainWindow::updateAnimationBackgroundGeometry()
+{
+    if (!m_weatherAnimationWidget || !m_mainContent) {
+        return;
+    }
+
+    m_weatherAnimationWidget->setGeometry(m_mainContent->rect());
+    m_weatherAnimationWidget->lower();
 }
 
 void MainWindow::updateCurrentDateTime()
@@ -398,41 +423,6 @@ QString MainWindow::airQualityLevelToString(AirQualityLevel level) const
 
 QString MainWindow::weatherBackgroundStyle(WeatherType weatherType) const
 {
-    QString gradientStart = m_isDarkTheme ? "#25364a" : "#d7ecff";
-    QString gradientEnd = m_isDarkTheme ? "#1d2530" : "#f5f9ff";
-
-    switch (weatherType) {
-    case WeatherType::Sunny:
-        gradientStart = m_isDarkTheme ? "#304a73" : "#8ec5ff";
-        gradientEnd = m_isDarkTheme ? "#1f2e4a" : "#f8e18a";
-        break;
-    case WeatherType::Cloudy:
-        gradientStart = m_isDarkTheme ? "#42556e" : "#c8d6e5";
-        gradientEnd = m_isDarkTheme ? "#273241" : "#eef3f8";
-        break;
-    case WeatherType::Overcast:
-        gradientStart = m_isDarkTheme ? "#48505c" : "#b8c1cc";
-        gradientEnd = m_isDarkTheme ? "#2c3138" : "#e4e7eb";
-        break;
-    case WeatherType::LightRain:
-    case WeatherType::HeavyRain:
-    case WeatherType::Thunderstorm:
-        gradientStart = m_isDarkTheme ? "#2f4f6a" : "#8db3d3";
-        gradientEnd = m_isDarkTheme ? "#1a2735" : "#dbe9f4";
-        break;
-    case WeatherType::LightSnow:
-    case WeatherType::HeavySnow:
-        gradientStart = m_isDarkTheme ? "#506070" : "#e3eef8";
-        gradientEnd = m_isDarkTheme ? "#293744" : "#ffffff";
-        break;
-    case WeatherType::Fog:
-        gradientStart = m_isDarkTheme ? "#5c6670" : "#d5dadd";
-        gradientEnd = m_isDarkTheme ? "#32383e" : "#f3f5f6";
-        break;
-    default:
-        break;
-    }
-
     const QString panelBackground = m_isDarkTheme
         ? "rgba(15, 23, 42, 0.42)"
         : "rgba(255, 255, 255, 0.68)";
@@ -442,22 +432,26 @@ QString MainWindow::weatherBackgroundStyle(WeatherType weatherType) const
 
     return QString(
                "QWidget#mainContent {"
-               "background-color: qlineargradient(x1:0, y1:0, x2:1, y2:1, stop:0 %1, stop:1 %2);"
+               "background: transparent;"
                "border-radius: 18px;"
                "}"
                "QScrollArea#mainScrollArea { background: transparent; border: none; }"
                "QWidget#qt_scrollarea_viewport { background: transparent; }"
+               "QWidget#weatherAnimationWidget { border-radius: 18px; }"
                "QWidget#weatherPanel, QWidget#currentMetricsPanel, QWidget#forecastPanel, QWidget#trendPanel {"
-               "background-color: %3;"
-               "border: 1px solid %4;"
+               "background-color: %1;"
+               "border: 1px solid %2;"
                "border-radius: 14px;"
                "}"
-               ).arg(gradientStart, gradientEnd, panelBackground, borderColor);
+               ).arg(panelBackground, borderColor);
 }
 
 void MainWindow::applyWeatherBackground(WeatherType weatherType)
 {
     m_currentWeatherType = weatherType;
+    if (m_weatherAnimationWidget) {
+        m_weatherAnimationWidget->setWeatherType(weatherType);
+    }
     applyTheme(m_isDarkTheme);
 }
 
@@ -1282,6 +1276,11 @@ void MainWindow::updateForecastDisplay(ForecastModel *forecast)
 void MainWindow::applyTheme(bool isDark)
 {
     m_isDarkTheme = isDark;
+
+    if (m_weatherAnimationWidget) {
+        m_weatherAnimationWidget->setDarkTheme(isDark);
+        m_weatherAnimationWidget->setWeatherType(m_currentWeatherType);
+    }
 
     QString baseStyle;
     if (isDark) {

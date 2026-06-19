@@ -16,7 +16,8 @@ SOURCES += \
     citymanager.cpp \
     weathermodel.cpp \
     forecastmodel.cpp \
-    citymodel.cpp
+    citymodel.cpp \
+    weatheranimationwidget.cpp
 
 HEADERS += \
     mainwindow.h \
@@ -26,7 +27,8 @@ HEADERS += \
     weathermodel.h \
     forecastmodel.h \
     citymodel.h \
-    enums.h
+    enums.h \
+    weatheranimationwidget.h
 
 RESOURCES += \
     resources.qrc

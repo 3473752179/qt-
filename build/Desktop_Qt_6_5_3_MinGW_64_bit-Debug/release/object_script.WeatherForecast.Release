@@ -6,8 +6,10 @@ release/citymanager.o
 release/weathermodel.o
 release/forecastmodel.o
 release/citymodel.o
+release/weatheranimationwidget.o
 release/qrc_resources.o
 release/moc_mainwindow.o
 release/moc_networkmanager.o
 release/moc_datamanager.o
 release/moc_citymanager.o
+release/moc_weatheranimationwidget.o

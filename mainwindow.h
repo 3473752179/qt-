@@ -13,11 +13,13 @@
 #include <QByteArray>
 #include <QTimer>
 #include <QScrollArea>
+#include <QEvent>
 #include <QtCharts/QChart>
 #include <QtCharts/QChartView>
 #include "citymodel.h"
 #include "weathermodel.h"
 #include "forecastmodel.h"
+#include "weatheranimationwidget.h"
 #include "enums.h"
 
 // ==================== 成员3：数据解析与界面模块 ====================
@@ -31,6 +33,9 @@ public:
     // --- 构造函数 ---
     MainWindow(QWidget *parent = nullptr);
     ~MainWindow();
+
+protected:
+    bool eventFilter(QObject *watched, QEvent *event) override;
 
 private slots:
     // --- 用户交互槽函数 ---
@@ -76,6 +81,7 @@ private:
     
     // --- 主题管理 ---
     void applyTheme(bool isDark);
+    void updateAnimationBackgroundGeometry();
 
     // --- 侧边栏控件 ---
     QWidget *m_sidebar;
@@ -87,6 +93,7 @@ private:
     // --- 主内容区域控件 ---
     QWidget *m_mainContent;
     QScrollArea *m_mainScrollArea;
+    WeatherAnimationWidget *m_weatherAnimationWidget;
     QLabel *m_cityLabel;
     QLabel *m_currentTimeLabel;
     QLabel *m_currentDateLabel;

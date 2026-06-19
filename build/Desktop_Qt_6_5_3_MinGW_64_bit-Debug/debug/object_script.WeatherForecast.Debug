@@ -6,8 +6,10 @@ debug/citymanager.o
 debug/weathermodel.o
 debug/forecastmodel.o
 debug/citymodel.o
+debug/weatheranimationwidget.o
 debug/qrc_resources.o
 debug/moc_mainwindow.o
 debug/moc_networkmanager.o
 debug/moc_datamanager.o
 debug/moc_citymanager.o
+debug/moc_weatheranimationwidget.o
