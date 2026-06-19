@@ -69,6 +69,28 @@ void NetworkManager::fetchCurrentWeather(const QString& cityId, double latitude,
     m_timeoutTimer->start();
 }
 
+void NetworkManager::fetchCurrentAirQuality(const QString& cityId, double latitude, double longitude)
+{
+    QUrl url("https://air-quality-api.open-meteo.com/v1/air-quality");
+    QUrlQuery query;
+    query.addQueryItem("latitude", QString::number(latitude, 'f', 6));
+    query.addQueryItem("longitude", QString::number(longitude, 'f', 6));
+    query.addQueryItem("current", "us_aqi,pm2_5");
+    query.addQueryItem("timezone", "auto");
+
+    url.setQuery(query);
+
+    qDebug() << "Air quality URL:" << url.toString();
+
+    QNetworkRequest request;
+    request.setUrl(url);
+    QNetworkReply* reply = m_networkManager->get(request);
+
+    connect(reply, &QNetworkReply::finished, [this, reply, cityId]() {
+        onCurrentAirQualityReply(reply, cityId);
+    });
+}
+
 void NetworkManager::fetchForecast(const QString& cityId)
 {
     QUrl url("https://restapi.amap.com/v3/weather/weatherInfo");
@@ -140,6 +162,22 @@ void NetworkManager::onForecastReply(QNetworkReply* reply, const QString& cityId
     
     emit forecastDataReceived(data, cityId);
     
+    reply->deleteLater();
+}
+
+void NetworkManager::onCurrentAirQualityReply(QNetworkReply* reply, const QString& cityId)
+{
+    if (reply->error() != QNetworkReply::NoError) {
+        emit networkError(reply->errorString());
+        reply->deleteLater();
+        return;
+    }
+
+    QByteArray data = reply->readAll();
+    qDebug() << "Air quality API response:" << QString(data);
+
+    emit currentAirQualityDataReceived(data, cityId);
+
     reply->deleteLater();
 }
 

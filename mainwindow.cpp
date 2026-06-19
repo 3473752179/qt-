@@ -175,6 +175,12 @@ void MainWindow::setupUI()
     m_pressureLabel = new QLabel("气压: -- hPa");
     weatherLayout->addWidget(m_pressureLabel, 2, 2);
 
+    m_airQualityLabel = new QLabel("空气质量: --");
+    weatherLayout->addWidget(m_airQualityLabel, 3, 1);
+
+    m_pm25Label = new QLabel("PM2.5: -- ug/m3");
+    weatherLayout->addWidget(m_pm25Label, 3, 2);
+
     weatherLayout->setColumnStretch(0, 1);
     weatherLayout->setColumnStretch(1, 1);
     weatherLayout->setColumnStretch(2, 1);
@@ -193,39 +199,44 @@ void MainWindow::setupUI()
     currentMetricsTitleLabel->setFont(currentMetricsTitleFont);
     currentMetricsLayout->addWidget(currentMetricsTitleLabel);
 
-    QWidget *currentMetricsContent = new QWidget();
-    currentMetricsContent->setMinimumWidth(1500);
-    currentMetricsContent->setMinimumHeight(860);
-    QVBoxLayout *currentMetricsContentLayout = new QVBoxLayout(currentMetricsContent);
-    currentMetricsContentLayout->setContentsMargins(0, 0, 0, 0);
-    currentMetricsContentLayout->setSpacing(8);
-
     m_tempMetricsChartView = new QChartView();
     m_tempMetricsChartView->setMinimumHeight(260);
     m_tempMetricsChartView->setMinimumWidth(1450);
     m_tempMetricsChartView->setRenderHint(QPainter::Antialiasing);
-    currentMetricsContentLayout->addWidget(m_tempMetricsChartView);
+    m_tempMetricsScrollArea = new QScrollArea();
+    m_tempMetricsScrollArea->setWidgetResizable(false);
+    m_tempMetricsScrollArea->setFrameShape(QFrame::NoFrame);
+    m_tempMetricsScrollArea->setHorizontalScrollBarPolicy(Qt::ScrollBarAsNeeded);
+    m_tempMetricsScrollArea->setVerticalScrollBarPolicy(Qt::ScrollBarAlwaysOff);
+    m_tempMetricsScrollArea->setMinimumHeight(290);
+    m_tempMetricsScrollArea->setWidget(m_tempMetricsChartView);
+    currentMetricsLayout->addWidget(m_tempMetricsScrollArea);
 
     m_airMetricsChartView = new QChartView();
     m_airMetricsChartView->setMinimumHeight(260);
     m_airMetricsChartView->setMinimumWidth(1450);
     m_airMetricsChartView->setRenderHint(QPainter::Antialiasing);
-    currentMetricsContentLayout->addWidget(m_airMetricsChartView);
+    m_airMetricsScrollArea = new QScrollArea();
+    m_airMetricsScrollArea->setWidgetResizable(false);
+    m_airMetricsScrollArea->setFrameShape(QFrame::NoFrame);
+    m_airMetricsScrollArea->setHorizontalScrollBarPolicy(Qt::ScrollBarAsNeeded);
+    m_airMetricsScrollArea->setVerticalScrollBarPolicy(Qt::ScrollBarAlwaysOff);
+    m_airMetricsScrollArea->setMinimumHeight(290);
+    m_airMetricsScrollArea->setWidget(m_airMetricsChartView);
+    currentMetricsLayout->addWidget(m_airMetricsScrollArea);
 
     m_windMetricsChartView = new QChartView();
     m_windMetricsChartView->setMinimumHeight(260);
     m_windMetricsChartView->setMinimumWidth(1450);
     m_windMetricsChartView->setRenderHint(QPainter::Antialiasing);
-    currentMetricsContentLayout->addWidget(m_windMetricsChartView);
-
-    m_currentMetricsScrollArea = new QScrollArea();
-    m_currentMetricsScrollArea->setWidgetResizable(false);
-    m_currentMetricsScrollArea->setFrameShape(QFrame::NoFrame);
-    m_currentMetricsScrollArea->setHorizontalScrollBarPolicy(Qt::ScrollBarAsNeeded);
-    m_currentMetricsScrollArea->setVerticalScrollBarPolicy(Qt::ScrollBarAlwaysOff);
-    m_currentMetricsScrollArea->setMinimumHeight(880);
-    m_currentMetricsScrollArea->setWidget(currentMetricsContent);
-    currentMetricsLayout->addWidget(m_currentMetricsScrollArea);
+    m_windMetricsScrollArea = new QScrollArea();
+    m_windMetricsScrollArea->setWidgetResizable(false);
+    m_windMetricsScrollArea->setFrameShape(QFrame::NoFrame);
+    m_windMetricsScrollArea->setHorizontalScrollBarPolicy(Qt::ScrollBarAsNeeded);
+    m_windMetricsScrollArea->setVerticalScrollBarPolicy(Qt::ScrollBarAlwaysOff);
+    m_windMetricsScrollArea->setMinimumHeight(290);
+    m_windMetricsScrollArea->setWidget(m_windMetricsChartView);
+    currentMetricsLayout->addWidget(m_windMetricsScrollArea);
 
     contentLayout->addWidget(m_currentMetricsPanel);
 
@@ -288,6 +299,8 @@ void MainWindow::setupConnections()
     // --- 数据接收信号（接收原始JSON数据，由本模块解析） ---
     connect(&NetworkManager::instance(), &NetworkManager::currentWeatherDataReceived,
             this, &MainWindow::onWeatherDataReceived);
+    connect(&NetworkManager::instance(), &NetworkManager::currentAirQualityDataReceived,
+            this, &MainWindow::onAirQualityDataReceived);
     connect(&NetworkManager::instance(), &NetworkManager::forecastDataReceived,
             this, &MainWindow::onForecastDataReceived);
     connect(&NetworkManager::instance(), &NetworkManager::networkError,
@@ -343,6 +356,33 @@ int MainWindow::parseWindPowerValue(const QString& windPower) const
     }
 
     return (values.first() + values.last()) / 2;
+}
+
+AirQualityLevel MainWindow::parseAirQualityLevel(int aqi) const
+{
+    if (aqi <= 50) return AirQualityLevel::Excellent;
+    if (aqi <= 100) return AirQualityLevel::Good;
+    if (aqi <= 150) return AirQualityLevel::Moderate;
+    if (aqi <= 200) return AirQualityLevel::Poor;
+    return AirQualityLevel::VeryPoor;
+}
+
+QString MainWindow::airQualityLevelToString(AirQualityLevel level) const
+{
+    switch (level) {
+    case AirQualityLevel::Excellent:
+        return "优";
+    case AirQualityLevel::Good:
+        return "良";
+    case AirQualityLevel::Moderate:
+        return "轻度污染";
+    case AirQualityLevel::Poor:
+        return "中度污染";
+    case AirQualityLevel::VeryPoor:
+        return "重度污染";
+    default:
+        return "未知";
+    }
 }
 
 WeatherType MainWindow::parseWeatherCode(int weatherCode) const
@@ -744,7 +784,10 @@ void MainWindow::onCitySelected(CityModel *city)
 
     m_cityLabel->setText(city->name());
     CityManager::instance().setCurrentCity(city);
+    m_airQualityLabel->setText("空气质量: --");
+    m_pm25Label->setText("PM2.5: -- ug/m3");
     NetworkManager::instance().fetchCurrentWeather(city->id(), city->latitude(), city->longitude());
+    NetworkManager::instance().fetchCurrentAirQuality(city->id(), city->latitude(), city->longitude());
     NetworkManager::instance().fetchForecast(city->id());
 }
 
@@ -957,6 +1000,38 @@ void MainWindow::onWeatherDataReceived(const QByteArray& data, const QString& ci
         updateCurrentMetricsCharts(data);
         DataManager::instance().cacheWeatherData(weather->cityId(), weather);
         delete weather;
+    }
+}
+
+void MainWindow::onAirQualityDataReceived(const QByteArray& data, const QString& cityId)
+{
+    CityModel *currentCity = CityManager::instance().currentCity();
+    if (!currentCity || currentCity->id() != cityId) {
+        return;
+    }
+
+    QJsonDocument doc = QJsonDocument::fromJson(data);
+    if (!doc.isObject()) {
+        return;
+    }
+
+    const QJsonObject current = doc.object().value("current").toObject();
+    if (current.isEmpty()) {
+        return;
+    }
+
+    const int aqi = qRound(current.value("us_aqi").toDouble(-1));
+    const double pm25 = current.value("pm2_5").toDouble(-1.0);
+
+    if (aqi >= 0) {
+        const AirQualityLevel level = parseAirQualityLevel(aqi);
+        m_airQualityLabel->setText(QString("空气质量: %1 (AQI %2)")
+                                       .arg(airQualityLevelToString(level))
+                                       .arg(aqi));
+    }
+
+    if (pm25 >= 0.0) {
+        m_pm25Label->setText(QString("PM2.5: %1 ug/m3").arg(pm25, 0, 'f', 1));
     }
 }
 

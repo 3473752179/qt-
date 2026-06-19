@@ -55,6 +55,7 @@ static constexpr auto qt_meta_stringdata_CLASSMainWindowENDCLASS = QtMocHelpers:
     "onWeatherDataReceived",
     "data",
     "cityId",
+    "onAirQualityDataReceived",
     "onForecastDataReceived",
     "onSearchResultsReady",
     "QList<CityModel*>",
@@ -62,7 +63,7 @@ static constexpr auto qt_meta_stringdata_CLASSMainWindowENDCLASS = QtMocHelpers:
 );
 #else  // !QT_MOC_HAS_STRING_DATA
 struct qt_meta_stringdata_CLASSMainWindowENDCLASS_t {
-    uint offsetsAndSizes[38];
+    uint offsetsAndSizes[40];
     char stringdata0[11];
     char stringdata1[15];
     char stringdata2[1];
@@ -78,10 +79,11 @@ struct qt_meta_stringdata_CLASSMainWindowENDCLASS_t {
     char stringdata12[22];
     char stringdata13[5];
     char stringdata14[7];
-    char stringdata15[23];
-    char stringdata16[21];
-    char stringdata17[18];
-    char stringdata18[7];
+    char stringdata15[25];
+    char stringdata16[23];
+    char stringdata17[21];
+    char stringdata18[18];
+    char stringdata19[7];
 };
 #define QT_MOC_LITERAL(ofs, len) \
     uint(sizeof(qt_meta_stringdata_CLASSMainWindowENDCLASS_t::offsetsAndSizes) + ofs), len 
@@ -102,10 +104,11 @@ Q_CONSTINIT static const qt_meta_stringdata_CLASSMainWindowENDCLASS_t qt_meta_st
         QT_MOC_LITERAL(163, 21),  // "onWeatherDataReceived"
         QT_MOC_LITERAL(185, 4),  // "data"
         QT_MOC_LITERAL(190, 6),  // "cityId"
-        QT_MOC_LITERAL(197, 22),  // "onForecastDataReceived"
-        QT_MOC_LITERAL(220, 20),  // "onSearchResultsReady"
-        QT_MOC_LITERAL(241, 17),  // "QList<CityModel*>"
-        QT_MOC_LITERAL(259, 6)   // "cities"
+        QT_MOC_LITERAL(197, 24),  // "onAirQualityDataReceived"
+        QT_MOC_LITERAL(222, 22),  // "onForecastDataReceived"
+        QT_MOC_LITERAL(245, 20),  // "onSearchResultsReady"
+        QT_MOC_LITERAL(266, 17),  // "QList<CityModel*>"
+        QT_MOC_LITERAL(284, 6)   // "cities"
     },
     "MainWindow",
     "onCitySelected",
@@ -122,6 +125,7 @@ Q_CONSTINIT static const qt_meta_stringdata_CLASSMainWindowENDCLASS_t qt_meta_st
     "onWeatherDataReceived",
     "data",
     "cityId",
+    "onAirQualityDataReceived",
     "onForecastDataReceived",
     "onSearchResultsReady",
     "QList<CityModel*>",
@@ -137,7 +141,7 @@ Q_CONSTINIT static const uint qt_meta_data_CLASSMainWindowENDCLASS[] = {
       11,       // revision
        0,       // classname
        0,    0, // classinfo
-       9,   14, // methods
+      10,   14, // methods
        0,    0, // properties
        0,    0, // enums/sets
        0,    0, // constructors
@@ -145,15 +149,16 @@ Q_CONSTINIT static const uint qt_meta_data_CLASSMainWindowENDCLASS[] = {
        0,       // signalCount
 
  // slots: name, argc, parameters, tag, flags, initial metatype offsets
-       1,    1,   68,    2, 0x08,    1 /* Private */,
-       5,    0,   71,    2, 0x08,    3 /* Private */,
-       6,    0,   72,    2, 0x08,    4 /* Private */,
-       7,    0,   73,    2, 0x08,    5 /* Private */,
-       8,    0,   74,    2, 0x08,    6 /* Private */,
-       9,    1,   75,    2, 0x08,    7 /* Private */,
-      12,    2,   78,    2, 0x08,    9 /* Private */,
-      15,    2,   83,    2, 0x08,   12 /* Private */,
-      16,    1,   88,    2, 0x08,   15 /* Private */,
+       1,    1,   74,    2, 0x08,    1 /* Private */,
+       5,    0,   77,    2, 0x08,    3 /* Private */,
+       6,    0,   78,    2, 0x08,    4 /* Private */,
+       7,    0,   79,    2, 0x08,    5 /* Private */,
+       8,    0,   80,    2, 0x08,    6 /* Private */,
+       9,    1,   81,    2, 0x08,    7 /* Private */,
+      12,    2,   84,    2, 0x08,    9 /* Private */,
+      15,    2,   89,    2, 0x08,   12 /* Private */,
+      16,    2,   94,    2, 0x08,   15 /* Private */,
+      17,    1,   99,    2, 0x08,   18 /* Private */,
 
  // slots: parameters
     QMetaType::Void, 0x80000000 | 3,    4,
@@ -164,7 +169,8 @@ Q_CONSTINIT static const uint qt_meta_data_CLASSMainWindowENDCLASS[] = {
     QMetaType::Void, 0x80000000 | 10,   11,
     QMetaType::Void, QMetaType::QByteArray, QMetaType::QString,   13,   14,
     QMetaType::Void, QMetaType::QByteArray, QMetaType::QString,   13,   14,
-    QMetaType::Void, 0x80000000 | 17,   18,
+    QMetaType::Void, QMetaType::QByteArray, QMetaType::QString,   13,   14,
+    QMetaType::Void, 0x80000000 | 18,   19,
 
        0        // eod
 };
@@ -196,6 +202,10 @@ Q_CONSTINIT const QMetaObject MainWindow::staticMetaObject = { {
         QtPrivate::TypeAndForceComplete<void, std::false_type>,
         QtPrivate::TypeAndForceComplete<const QByteArray &, std::false_type>,
         QtPrivate::TypeAndForceComplete<const QString &, std::false_type>,
+        // method 'onAirQualityDataReceived'
+        QtPrivate::TypeAndForceComplete<void, std::false_type>,
+        QtPrivate::TypeAndForceComplete<const QByteArray &, std::false_type>,
+        QtPrivate::TypeAndForceComplete<const QString &, std::false_type>,
         // method 'onForecastDataReceived'
         QtPrivate::TypeAndForceComplete<void, std::false_type>,
         QtPrivate::TypeAndForceComplete<const QByteArray &, std::false_type>,
@@ -220,8 +230,9 @@ void MainWindow::qt_static_metacall(QObject *_o, QMetaObject::Call _c, int _id, 
         case 4: _t->onSettingsClicked(); break;
         case 5: _t->onCityListItemClicked((*reinterpret_cast< std::add_pointer_t<QListWidgetItem*>>(_a[1]))); break;
         case 6: _t->onWeatherDataReceived((*reinterpret_cast< std::add_pointer_t<QByteArray>>(_a[1])),(*reinterpret_cast< std::add_pointer_t<QString>>(_a[2]))); break;
-        case 7: _t->onForecastDataReceived((*reinterpret_cast< std::add_pointer_t<QByteArray>>(_a[1])),(*reinterpret_cast< std::add_pointer_t<QString>>(_a[2]))); break;
-        case 8: _t->onSearchResultsReady((*reinterpret_cast< std::add_pointer_t<QList<CityModel*>>>(_a[1]))); break;
+        case 7: _t->onAirQualityDataReceived((*reinterpret_cast< std::add_pointer_t<QByteArray>>(_a[1])),(*reinterpret_cast< std::add_pointer_t<QString>>(_a[2]))); break;
+        case 8: _t->onForecastDataReceived((*reinterpret_cast< std::add_pointer_t<QByteArray>>(_a[1])),(*reinterpret_cast< std::add_pointer_t<QString>>(_a[2]))); break;
+        case 9: _t->onSearchResultsReady((*reinterpret_cast< std::add_pointer_t<QList<CityModel*>>>(_a[1]))); break;
         default: ;
         }
     }
@@ -246,13 +257,13 @@ int MainWindow::qt_metacall(QMetaObject::Call _c, int _id, void **_a)
     if (_id < 0)
         return _id;
     if (_c == QMetaObject::InvokeMetaMethod) {
-        if (_id < 9)
+        if (_id < 10)
             qt_static_metacall(this, _c, _id, _a);
-        _id -= 9;
+        _id -= 10;
     } else if (_c == QMetaObject::RegisterMethodArgumentMetaType) {
-        if (_id < 9)
+        if (_id < 10)
             *reinterpret_cast<QMetaType *>(_a[0]) = QMetaType();
-        _id -= 9;
+        _id -= 10;
     }
     return _id;
 }

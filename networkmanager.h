@@ -19,6 +19,7 @@ public:
     
     // --- 网络请求接口 ---
     void fetchCurrentWeather(const QString& cityId, double latitude, double longitude);
+    void fetchCurrentAirQuality(const QString& cityId, double latitude, double longitude);
     void fetchForecast(const QString& cityId);
     
     // --- API配置 ---
@@ -29,6 +30,7 @@ public:
 signals:
     // --- 数据接收信号（发送原始JSON数据，由成员3解析） ---
     void currentWeatherDataReceived(const QByteArray& data, const QString& cityId);
+    void currentAirQualityDataReceived(const QByteArray& data, const QString& cityId);
     void forecastDataReceived(const QByteArray& data, const QString& cityId);
     
     // --- 网络状态信号 ---
@@ -40,6 +42,7 @@ signals:
 private slots:
     // --- 响应处理槽函数 ---
     void onCurrentWeatherReply(QNetworkReply* reply, const QString& cityId);
+    void onCurrentAirQualityReply(QNetworkReply* reply, const QString& cityId);
     void onForecastReply(QNetworkReply* reply, const QString& cityId);
     void onNetworkTimeout();
     void checkNetworkStatus();

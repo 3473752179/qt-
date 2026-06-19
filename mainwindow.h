@@ -43,6 +43,7 @@ private slots:
     
     // --- 数据接收槽函数（接收原始JSON数据） ---
     void onWeatherDataReceived(const QByteArray& data, const QString& cityId);
+    void onAirQualityDataReceived(const QByteArray& data, const QString& cityId);
     void onForecastDataReceived(const QByteArray& data, const QString& cityId);
     void onSearchResultsReady(QList<CityModel*> cities);
 
@@ -56,6 +57,8 @@ private:
     void updateCurrentMetricsCharts(const QByteArray& data);
     void applyChartTheme(QChart* chart);
     int parseWindPowerValue(const QString& windPower) const;
+    AirQualityLevel parseAirQualityLevel(int aqi) const;
+    QString airQualityLevelToString(AirQualityLevel level) const;
     WeatherType parseWeatherCode(int weatherCode) const;
     QString weatherDescriptionFromCode(int weatherCode) const;
     WindDirection parseWindDirection(double windDirectionDegrees) const;
@@ -97,8 +100,12 @@ private:
     QLabel *m_humidityLabel;
     QLabel *m_windLabel;
     QLabel *m_pressureLabel;
+    QLabel *m_airQualityLabel;
+    QLabel *m_pm25Label;
     QWidget *m_currentMetricsPanel;
-    QScrollArea *m_currentMetricsScrollArea;
+    QScrollArea *m_tempMetricsScrollArea;
+    QScrollArea *m_airMetricsScrollArea;
+    QScrollArea *m_windMetricsScrollArea;
     QChartView *m_tempMetricsChartView;
     QChartView *m_airMetricsChartView;
     QChartView *m_windMetricsChartView;
