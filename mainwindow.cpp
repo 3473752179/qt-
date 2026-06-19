@@ -1,0 +1,665 @@
+#include "mainwindow.h"
+#include "networkmanager.h"
+#include "citymanager.h"
+#include "datamanager.h"
+#include "enums.h"
+#include "weathermodel.h"
+#include "forecastmodel.h"
+#include <QMessageBox>
+#include <QDateTime>
+#include <QDebug>
+#include <QScrollArea>
+#include <QJsonDocument>
+#include <QJsonObject>
+#include <QJsonArray>
+
+// ==================== 成员3：数据解析与界面模块 ====================
+// 负责JSON数据解析、UI显示、用户交互、主题切换
+
+// ==================== 构造与初始化 ====================
+
+MainWindow::MainWindow(QWidget *parent)
+    : QMainWindow(parent), m_isDarkTheme(false), m_clockTimer(nullptr)
+{
+    setupUI();
+    setupConnections();
+    loadFavoriteCities();
+
+    CityModel *defaultCity = DataManager::instance().loadDefaultCity();
+    if (defaultCity && defaultCity->isValid()) {
+        onCitySelected(defaultCity);
+        delete defaultCity;
+    }
+
+    updateCurrentDateTime();
+    m_clockTimer->start();
+}
+
+MainWindow::~MainWindow()
+{
+}
+
+// ==================== UI界面搭建 ====================
+
+void MainWindow::setupUI()
+{
+    setWindowTitle("Weather Forecast");
+    resize(900, 600);
+
+    QWidget *centralWidget = new QWidget(this);
+    setCentralWidget(centralWidget);
+
+    QHBoxLayout *mainLayout = new QHBoxLayout(centralWidget);
+    mainLayout->setContentsMargins(0, 0, 0, 0);
+    mainLayout->setSpacing(0);
+
+    // --- 侧边栏 ---
+    m_sidebar = new QWidget();
+    m_sidebar->setFixedWidth(200);
+    QVBoxLayout *sidebarLayout = new QVBoxLayout(m_sidebar);
+    sidebarLayout->setContentsMargins(10, 10, 10, 10);
+    sidebarLayout->setSpacing(10);
+
+    m_citySearchLineEdit = new QLineEdit();
+    m_citySearchLineEdit->setPlaceholderText("搜索城市...");
+    sidebarLayout->addWidget(m_citySearchLineEdit);
+
+    m_addCityButton = new QPushButton("添加城市");
+    sidebarLayout->addWidget(m_addCityButton);
+
+    m_cityListWidget = new QListWidget();
+    sidebarLayout->addWidget(m_cityListWidget, 1);
+
+    m_removeCityButton = new QPushButton("删除城市");
+    sidebarLayout->addWidget(m_removeCityButton);
+
+    // --- 主内容区域 ---
+    m_mainContent = new QWidget();
+    QVBoxLayout *contentLayout = new QVBoxLayout(m_mainContent);
+    contentLayout->setContentsMargins(20, 20, 20, 20);
+    contentLayout->setSpacing(15);
+
+    // --- 标题栏 ---
+    QWidget *titleBar = new QWidget();
+    QHBoxLayout *titleLayout = new QHBoxLayout(titleBar);
+    titleLayout->setContentsMargins(0, 0, 0, 0);
+
+    m_cityLabel = new QLabel("城市名称");
+    QFont titleFont = m_cityLabel->font();
+    titleFont.setPointSize(16);
+    titleFont.setBold(true);
+    m_cityLabel->setFont(titleFont);
+    titleLayout->addWidget(m_cityLabel);
+
+    titleLayout->addStretch();
+
+    QWidget *dateTimeWidget = new QWidget();
+    QVBoxLayout *dateTimeLayout = new QVBoxLayout(dateTimeWidget);
+    dateTimeLayout->setContentsMargins(0, 0, 0, 0);
+    dateTimeLayout->setSpacing(2);
+
+    m_currentTimeLabel = new QLabel("--:--:--");
+    QFont currentTimeFont = m_currentTimeLabel->font();
+    currentTimeFont.setPointSize(18);
+    currentTimeFont.setBold(true);
+    m_currentTimeLabel->setFont(currentTimeFont);
+    m_currentTimeLabel->setAlignment(Qt::AlignRight | Qt::AlignVCenter);
+    dateTimeLayout->addWidget(m_currentTimeLabel);
+
+    m_currentDateLabel = new QLabel("----/--/-- ----");
+    QFont currentDateFont = m_currentDateLabel->font();
+    currentDateFont.setPointSize(10);
+    m_currentDateLabel->setFont(currentDateFont);
+    m_currentDateLabel->setAlignment(Qt::AlignRight | Qt::AlignVCenter);
+    dateTimeLayout->addWidget(m_currentDateLabel);
+
+    titleLayout->addWidget(dateTimeWidget);
+
+    m_themeButton = new QPushButton("🌙");
+    m_themeButton->setFixedSize(32, 32);
+    titleLayout->addWidget(m_themeButton);
+
+    m_settingsButton = new QPushButton("⚙");
+    m_settingsButton->setFixedSize(32, 32);
+    titleLayout->addWidget(m_settingsButton);
+
+    contentLayout->addWidget(titleBar);
+
+    // --- 天气面板 ---
+    m_weatherPanel = new QWidget();
+    QGridLayout *weatherLayout = new QGridLayout(m_weatherPanel);
+    weatherLayout->setSpacing(15);
+
+    m_weatherIconLabel = new QLabel("☀");
+    QFont iconFont = m_weatherIconLabel->font();
+    iconFont.setPointSize(48);
+    m_weatherIconLabel->setFont(iconFont);
+    weatherLayout->addWidget(m_weatherIconLabel, 0, 0, 3, 1, Qt::AlignCenter);
+
+    m_tempLabel = new QLabel("--°C");
+    QFont tempFont = m_tempLabel->font();
+    tempFont.setPointSize(36);
+    tempFont.setBold(true);
+    m_tempLabel->setFont(tempFont);
+    weatherLayout->addWidget(m_tempLabel, 0, 1);
+
+    m_feelsLikeLabel = new QLabel("体感 --°C");
+    weatherLayout->addWidget(m_feelsLikeLabel, 1, 1);
+
+    m_descLabel = new QLabel("天气状况");
+    QFont descFont = m_descLabel->font();
+    descFont.setPointSize(14);
+    m_descLabel->setFont(descFont);
+    weatherLayout->addWidget(m_descLabel, 2, 1);
+
+    m_humidityLabel = new QLabel("湿度: --%");
+    weatherLayout->addWidget(m_humidityLabel, 0, 2);
+
+    m_windLabel = new QLabel("风速: -- km/h");
+    weatherLayout->addWidget(m_windLabel, 1, 2);
+
+    m_pressureLabel = new QLabel("气压: -- hPa");
+    weatherLayout->addWidget(m_pressureLabel, 2, 2);
+
+    m_updateTimeLabel = new QLabel("更新时间: --");
+    QFont timeFont = m_updateTimeLabel->font();
+    timeFont.setPointSize(10);
+    m_updateTimeLabel->setFont(timeFont);
+    weatherLayout->addWidget(m_updateTimeLabel, 3, 0, 1, 3);
+
+    weatherLayout->setColumnStretch(0, 1);
+    weatherLayout->setColumnStretch(1, 1);
+    weatherLayout->setColumnStretch(2, 1);
+
+    contentLayout->addWidget(m_weatherPanel);
+
+    // --- 预报面板 ---
+    m_forecastPanel = new QWidget();
+    m_forecastLayout = new QHBoxLayout(m_forecastPanel);
+    m_forecastLayout->setSpacing(10);
+    m_forecastLayout->setAlignment(Qt::AlignLeft);
+
+    contentLayout->addWidget(m_forecastPanel, 1);
+
+    // --- 添加主布局 ---
+    mainLayout->addWidget(m_sidebar);
+    mainLayout->addWidget(m_mainContent, 1);
+
+    // --- 应用默认主题 ---
+    applyTheme(false);
+
+    m_clockTimer = new QTimer(this);
+    m_clockTimer->setInterval(1000);
+}
+
+// ==================== 信号槽连接 ====================
+
+void MainWindow::setupConnections()
+{
+    // --- 用户交互信号 ---
+    connect(m_addCityButton, &QPushButton::clicked,
+            this, &MainWindow::onAddCityClicked);
+    connect(m_removeCityButton, &QPushButton::clicked,
+            this, &MainWindow::onRemoveCityClicked);
+    connect(m_themeButton, &QPushButton::clicked,
+            this, &MainWindow::onThemeToggleClicked);
+    connect(m_settingsButton, &QPushButton::clicked,
+            this, &MainWindow::onSettingsClicked);
+    connect(m_cityListWidget, &QListWidget::itemClicked,
+            this, &MainWindow::onCityListItemClicked);
+    connect(m_clockTimer, &QTimer::timeout,
+            this, &MainWindow::updateCurrentDateTime);
+
+    // --- 数据接收信号（接收原始JSON数据，由本模块解析） ---
+    connect(&NetworkManager::instance(), &NetworkManager::currentWeatherDataReceived,
+            this, &MainWindow::onWeatherDataReceived);
+    connect(&NetworkManager::instance(), &NetworkManager::forecastDataReceived,
+            this, &MainWindow::onForecastDataReceived);
+    connect(&NetworkManager::instance(), &NetworkManager::networkError,
+            [this](const QString &error) {
+                QMessageBox::warning(this, "Network Error", error);
+            });
+
+    connect(&CityManager::instance(), &CityManager::searchResultsReady,
+            this, &MainWindow::onSearchResultsReady);
+}
+
+// ==================== 用户交互处理 ====================
+
+void MainWindow::loadFavoriteCities()
+{
+    m_cityListWidget->clear();
+    QList<CityModel *> cities = CityManager::instance().favoriteCities();
+    for (CityModel *city : cities) {
+        m_cityListWidget->addItem(city->name());
+    }
+}
+
+void MainWindow::updateCurrentDateTime()
+{
+    static const QStringList kWeekdays = {
+        "星期日", "星期一", "星期二", "星期三", "星期四", "星期五", "星期六"
+    };
+
+    const QDateTime currentDateTime = QDateTime::currentDateTime();
+    m_currentTimeLabel->setText(currentDateTime.toString("HH:mm:ss"));
+    m_currentDateLabel->setText(QString("%1 %2")
+                                    .arg(currentDateTime.toString("yyyy-MM-dd"))
+                                    .arg(kWeekdays.at(currentDateTime.date().dayOfWeek() % 7)));
+}
+
+void MainWindow::onCitySelected(CityModel *city)
+{
+    if (!city || !city->isValid())
+        return;
+
+    m_cityLabel->setText(city->name());
+    CityManager::instance().setCurrentCity(city);
+    NetworkManager::instance().fetchCurrentWeather(city->id());
+    NetworkManager::instance().fetchForecast(city->id());
+}
+
+void MainWindow::onAddCityClicked()
+{
+    QString cityName = m_citySearchLineEdit->text().trimmed();
+    if (cityName.isEmpty()) {
+        QMessageBox::warning(this, "Warning", "Please enter a city name");
+        return;
+    }
+
+    CityManager::instance().searchCity(cityName);
+}
+
+void MainWindow::onRemoveCityClicked()
+{
+    QListWidgetItem *item = m_cityListWidget->currentItem();
+    if (!item)
+        return;
+
+    QString cityName = item->text();
+    QList<CityModel *> cities = CityManager::instance().favoriteCities();
+    for (CityModel *city : cities) {
+        if (city->name() == cityName) {
+            CityManager::instance().removeFavoriteCity(city->id());
+            loadFavoriteCities();
+            return;
+        }
+    }
+}
+
+void MainWindow::onThemeToggleClicked()
+{
+    m_isDarkTheme = !m_isDarkTheme;
+    applyTheme(m_isDarkTheme);
+    DataManager::instance().saveThemeMode(m_isDarkTheme ? ThemeMode::Dark : ThemeMode::Light);
+}
+
+void MainWindow::onSettingsClicked()
+{
+    QMessageBox::information(this, "Settings", "Settings Dialog");
+}
+
+void MainWindow::onCityListItemClicked(QListWidgetItem *item)
+{
+    if (!item)
+        return;
+
+    QString cityName = item->text();
+    QList<CityModel *> cities = CityManager::instance().favoriteCities();
+    for (CityModel *city : cities) {
+        if (city->name() == cityName) {
+            onCitySelected(city);
+            return;
+        }
+    }
+}
+
+void MainWindow::onSearchResultsReady(QList<CityModel *> cities)
+{
+    if (cities.isEmpty()) {
+        QMessageBox::information(this, "Search", "No cities found");
+        return;
+    }
+
+    CityModel *firstCity = cities.first();
+    CityManager::instance().addFavoriteCity(firstCity);
+    loadFavoriteCities();
+    onCitySelected(firstCity);
+    m_citySearchLineEdit->clear();
+
+    qDeleteAll(cities);
+}
+
+// ==================== 数据解析 ====================
+
+WeatherType MainWindow::parseChineseWeather(const QString& weather)
+{
+    QString w = weather.trimmed();
+    if (w.contains("晴")) return WeatherType::Sunny;
+    if (w.contains("多云")) return WeatherType::Cloudy;
+    if (w.contains("阴")) return WeatherType::Overcast;
+    if (w.contains("雨")) {
+        if (w.contains("大") || w.contains("暴")) return WeatherType::HeavyRain;
+        if (w.contains("雷")) return WeatherType::Thunderstorm;
+        return WeatherType::LightRain;
+    }
+    if (w.contains("雪")) {
+        if (w.contains("大") || w.contains("暴")) return WeatherType::HeavySnow;
+        return WeatherType::LightSnow;
+    }
+    if (w.contains("雾")) return WeatherType::Fog;
+    if (w.contains("霾")) return WeatherType::Haze;
+    return WeatherType::Unknown;
+}
+
+WeatherModel* MainWindow::parseCurrentWeather(const QByteArray& data, const QString& cityId)
+{
+    QJsonDocument doc = QJsonDocument::fromJson(data);
+    if (!doc.isObject()) return nullptr;
+
+    QJsonObject obj = doc.object();
+
+    if (obj["status"].toString() != "1") {
+        qWarning() << "Amap API error:" << obj["info"].toString();
+        return nullptr;
+    }
+
+    QJsonArray lives = obj["lives"].toArray();
+    if (lives.isEmpty()) return nullptr;
+
+    QJsonObject live = lives[0].toObject();
+
+    WeatherModel* weather = new WeatherModel();
+    weather->setCityId(cityId);
+    weather->setCityName(live["city"].toString());
+
+    QString tempStr = live["temperature"].toString();
+    weather->setTemperature(tempStr.toDouble());
+
+    QString humidityStr = live["humidity"].toString();
+    weather->setHumidity(humidityStr.toInt());
+
+    QString windStr = live["windpower"].toString();
+    windStr.replace("≤", "");
+    windStr.replace("级", "");
+    weather->setWindSpeed(windStr.toInt());
+
+    weather->setFeelsLike(tempStr.toDouble());
+    weather->setPressure(1013);
+
+    weather->setWeatherDescription(live["weather"].toString());
+    weather->setWeatherType(parseChineseWeather(live["weather"].toString()));
+    weather->setUpdateTime(QDateTime::currentDateTime());
+
+    qDebug() << "Parsed weather:" << weather->cityName() << weather->temperature() << "°C";
+
+    return weather;
+}
+
+ForecastModel* MainWindow::parseForecast(const QByteArray& data, const QString& cityId)
+{
+    QJsonDocument doc = QJsonDocument::fromJson(data);
+    if (!doc.isObject()) return nullptr;
+
+    QJsonObject obj = doc.object();
+
+    if (obj["status"].toString() != "1") {
+        qWarning() << "Amap API error:" << obj["info"].toString();
+        return nullptr;
+    }
+
+    QJsonArray forecasts = obj["forecasts"].toArray();
+    if (forecasts.isEmpty()) return nullptr;
+
+    QJsonObject forecastObj = forecasts[0].toObject();
+
+    ForecastModel* forecast = new ForecastModel();
+    forecast->setCityId(cityId);
+    forecast->setCityName(forecastObj["city"].toString());
+
+    QJsonArray casts = forecastObj["casts"].toArray();
+    for (int i = 0; i < qMin(casts.size(), 7); ++i) {
+        QJsonObject dayObj = casts[i].toObject();
+        DailyForecast* day = new DailyForecast();
+
+        QString dateStr = dayObj["date"].toString();
+        QStringList dateParts = dateStr.split("-");
+        if (dateParts.size() == 3) {
+            day->setDate(QDate(dateParts[0].toInt(), dateParts[1].toInt(), dateParts[2].toInt()).startOfDay());
+        } else {
+            day->setDate(QDateTime::currentDateTime().addDays(i));
+        }
+
+        day->setWeek(dayObj["week"].toString());
+
+        QString dayTempStr = dayObj["daytemp"].toString();
+        QString nightTempStr = dayObj["nighttemp"].toString();
+        day->setMaxTemperature(dayTempStr.toDouble());
+        day->setMinTemperature(nightTempStr.toDouble());
+
+        day->setDayWeather(dayObj["dayweather"].toString());
+        day->setNightWeather(dayObj["nightweather"].toString());
+
+        day->setDayWind(dayObj["daywind"].toString());
+        day->setNightWind(dayObj["nightwind"].toString());
+
+        day->setDayPower(dayObj["daypower"].toString());
+        day->setNightPower(dayObj["nightpower"].toString());
+
+        day->setWeatherDescription(dayObj["dayweather"].toString());
+        day->setWeatherType(parseChineseWeather(dayObj["dayweather"].toString()));
+
+        forecast->addForecast(day);
+    }
+
+    qDebug() << "Parsed forecast:" << forecast->cityName() << forecast->forecastDays() << "days";
+
+    return forecast;
+}
+
+// ==================== 数据接收与显示 ====================
+
+void MainWindow::onWeatherDataReceived(const QByteArray& data, const QString& cityId)
+{
+    WeatherModel* weather = parseCurrentWeather(data, cityId);
+    if (weather) {
+        updateWeatherDisplay(weather);
+        DataManager::instance().cacheWeatherData(weather->cityId(), weather);
+        delete weather;
+    }
+}
+
+void MainWindow::onForecastDataReceived(const QByteArray& data, const QString& cityId)
+{
+    ForecastModel* forecast = parseForecast(data, cityId);
+    if (forecast) {
+        updateForecastDisplay(forecast);
+        DataManager::instance().cacheForecastData(forecast->cityId(), forecast);
+        delete forecast;
+    }
+}
+
+void MainWindow::updateWeatherDisplay(WeatherModel *weather)
+{
+    m_tempLabel->setText(QString("%1°C").arg(weather->temperature(), 0, 'f', 1));
+    m_feelsLikeLabel->setText(QString("体感 %1°C").arg(weather->feelsLike(), 0, 'f', 1));
+    m_humidityLabel->setText(QString("湿度: %1%").arg(weather->humidity()));
+    m_windLabel->setText(QString("风速: %1 km/h").arg(weather->windSpeed()));
+    m_pressureLabel->setText(QString("气压: %1 hPa").arg(weather->pressure()));
+    m_descLabel->setText(weatherTypeToString(weather->weatherType()));
+
+    QString weatherIcon = "☀";
+    switch (weather->weatherType()) {
+    case WeatherType::Sunny:
+        weatherIcon = "☀";
+        break;
+    case WeatherType::Cloudy:
+        weatherIcon = "☁";
+        break;
+    case WeatherType::Overcast:
+        weatherIcon = "☁☁";
+        break;
+    case WeatherType::LightRain:
+        weatherIcon = "🌧";
+        break;
+    case WeatherType::HeavyRain:
+        weatherIcon = "⛈";
+        break;
+    case WeatherType::Thunderstorm:
+        weatherIcon = "⚡";
+        break;
+    case WeatherType::LightSnow:
+        weatherIcon = "🌨";
+        break;
+    case WeatherType::HeavySnow:
+        weatherIcon = "❄";
+        break;
+    case WeatherType::Fog:
+        weatherIcon = "🌫";
+        break;
+    default:
+        weatherIcon = "☀";
+    }
+    m_weatherIconLabel->setText(weatherIcon);
+
+    m_updateTimeLabel->setText(QString("更新时间: %1").arg(QDateTime::currentDateTime().toString("yyyy-MM-dd HH:mm")));
+}
+
+void MainWindow::updateForecastDisplay(ForecastModel *forecast)
+{
+    QLayoutItem *item;
+    while ((item = m_forecastLayout->takeAt(0)) != nullptr) {
+        delete item->widget();
+        delete item;
+    }
+
+    for (int i = 0; i < qMin(forecast->forecastDays(), 7); ++i) {
+        DailyForecast *day = forecast->forecastAt(i);
+        if (day) {
+            QWidget *card = new QWidget();
+            QVBoxLayout *layout = new QVBoxLayout(card);
+            layout->setAlignment(Qt::AlignCenter);
+            layout->setSpacing(5);
+
+            QString dayName = i == 0 ? "今天" : day->date().toString("MM-dd");
+            QLabel *dateLabel = new QLabel(dayName);
+            dateLabel->setAlignment(Qt::AlignCenter);
+            QFont dateFont = dateLabel->font();
+            dateFont.setPointSize(12);
+            dateLabel->setFont(dateFont);
+
+            QString weekStr = day->week();
+            if (!weekStr.isEmpty()) {
+                QLabel *weekLabel = new QLabel(weekStr);
+                weekLabel->setAlignment(Qt::AlignCenter);
+                QFont weekFont = weekLabel->font();
+                weekFont.setPointSize(10);
+                weekLabel->setFont(weekFont);
+                layout->addWidget(weekLabel);
+            }
+
+            QString icon = "☀";
+            switch (day->weatherType()) {
+            case WeatherType::Sunny:
+                icon = "☀";
+                break;
+            case WeatherType::Cloudy:
+                icon = "☁";
+                break;
+            case WeatherType::Overcast:
+                icon = "☁☁";
+                break;
+            case WeatherType::LightRain:
+                icon = "🌧";
+                break;
+            case WeatherType::HeavyRain:
+                icon = "⛈";
+                break;
+            case WeatherType::Thunderstorm:
+                icon = "⚡";
+                break;
+            case WeatherType::LightSnow:
+                icon = "🌨";
+                break;
+            case WeatherType::HeavySnow:
+                icon = "❄";
+                break;
+            case WeatherType::Fog:
+                icon = "🌫";
+                break;
+            default:
+                icon = "☀";
+            }
+            QLabel *iconLabel = new QLabel(icon);
+            iconLabel->setAlignment(Qt::AlignCenter);
+            QFont iconFont = iconLabel->font();
+            iconFont.setPointSize(24);
+            iconLabel->setFont(iconFont);
+
+            QLabel *weatherLabel = new QLabel(day->dayWeather() + "/" + day->nightWeather());
+            weatherLabel->setAlignment(Qt::AlignCenter);
+            QFont weatherFont = weatherLabel->font();
+            weatherFont.setPointSize(11);
+            weatherLabel->setFont(weatherFont);
+
+            QLabel *tempLabel = new QLabel(QString("%1°/%2°").arg(day->maxTemperature(), 0, 'f', 0).arg(day->minTemperature(), 0, 'f', 0));
+            tempLabel->setAlignment(Qt::AlignCenter);
+            QFont tempFont = tempLabel->font();
+            tempFont.setPointSize(14);
+            tempFont.setBold(true);
+            tempLabel->setFont(tempFont);
+
+            QString windInfo = "";
+            if (!day->dayWind().isEmpty()) {
+                windInfo = day->dayWind() + day->dayPower();
+            }
+            QLabel *windLabel = new QLabel(windInfo);
+            windLabel->setAlignment(Qt::AlignCenter);
+            QFont windFont = windLabel->font();
+            windFont.setPointSize(10);
+            windLabel->setFont(windFont);
+
+            layout->addWidget(dateLabel);
+            layout->addWidget(iconLabel);
+            layout->addWidget(weatherLabel);
+            layout->addWidget(tempLabel);
+            layout->addWidget(windLabel);
+
+            card->setLayout(layout);
+            card->setMinimumWidth(100);
+            card->setStyleSheet("background-color: rgba(255,255,255,0.1); border-radius: 8px; padding: 10px;");
+            m_forecastLayout->addWidget(card);
+        }
+    }
+}
+
+// ==================== 主题管理 ====================
+
+void MainWindow::applyTheme(bool isDark)
+{
+    m_isDarkTheme = isDark;
+
+    if (isDark) {
+        setStyleSheet("QMainWindow { background-color: #1a1a1a; }"
+                      "QWidget { color: #ffffff; }"
+                      "QLineEdit { background-color: #333; color: #fff; border: 1px solid #555; padding: 5px; border-radius: 3px; }"
+                      "QListWidget { background-color: #333; border: 1px solid #555; color: #ffffff; }"
+                      "QListWidget::item:hover { background-color: #4a5568; }"
+                      "QListWidget::item:selected { background-color: #4a90d9; color: white; }"
+                      "QPushButton { background-color: #4a90d9; color: white; border: none; padding: 6px 12px; border-radius: 3px; }"
+                      "QPushButton:hover { background-color: #357abd; }"
+                      "QLabel { color: #ffffff; }");
+        m_themeButton->setText("☀");
+    } else {
+        setStyleSheet("QMainWindow { background-color: #f5f5f5; }"
+                      "QWidget { color: #333333; }"
+                      "QLineEdit { background-color: #ffffff; border: 1px solid #ccc; padding: 5px; border-radius: 3px; }"
+                      "QListWidget { background-color: #ffffff; border: 1px solid #e0e0e0; }"
+                      "QListWidget::item:hover { background-color: #e8f0fe; }"
+                      "QListWidget::item:selected { background-color: #4a90d9; color: white; }"
+                      "QPushButton { background-color: #4a90d9; color: white; border: none; padding: 6px 12px; border-radius: 3px; }"
+                      "QPushButton:hover { background-color: #357abd; }"
+                      "QLabel { color: #333333; }");
+        m_themeButton->setText("🌙");
+    }
+}
