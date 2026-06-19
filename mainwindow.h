@@ -86,7 +86,6 @@ private:
     QLabel *m_humidityLabel;
     QLabel *m_windLabel;
     QLabel *m_pressureLabel;
-    QLabel *m_updateTimeLabel;
 
     // --- 预报面板控件 ---
     QWidget *m_forecastPanel;

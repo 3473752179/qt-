@@ -161,12 +161,6 @@ void MainWindow::setupUI()
     m_pressureLabel = new QLabel("气压: -- hPa");
     weatherLayout->addWidget(m_pressureLabel, 2, 2);
 
-    m_updateTimeLabel = new QLabel("更新时间: --");
-    QFont timeFont = m_updateTimeLabel->font();
-    timeFont.setPointSize(10);
-    m_updateTimeLabel->setFont(timeFont);
-    weatherLayout->addWidget(m_updateTimeLabel, 3, 0, 1, 3);
-
     weatherLayout->setColumnStretch(0, 1);
     weatherLayout->setColumnStretch(1, 1);
     weatherLayout->setColumnStretch(2, 1);
@@ -521,8 +515,6 @@ void MainWindow::updateWeatherDisplay(WeatherModel *weather)
         weatherIcon = "☀";
     }
     m_weatherIconLabel->setText(weatherIcon);
-
-    m_updateTimeLabel->setText(QString("更新时间: %1").arg(QDateTime::currentDateTime().toString("yyyy-MM-dd HH:mm")));
 }
 
 void MainWindow::updateForecastDisplay(ForecastModel *forecast)
