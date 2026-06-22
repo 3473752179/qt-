@@ -129,14 +129,17 @@ void CityManager::searchCity(const QString& keyword)
                         QString adcode = geo["adcode"].toString();
                         QString formattedAddress = geo["formatted_address"].toString();
                         QString city = geo["city"].toString();
-                        
-                        if (city.isEmpty()) {
+                        QString district = geo["district"].toString();
+
+                        // 优先使用完整地址，其次使用区县名，最后使用市级名称
+                        if (!formattedAddress.isEmpty()) {
+                            city = formattedAddress;
+                        } else if (!district.isEmpty()) {
                             QString province = geo["province"].toString();
-                            if (!province.isEmpty()) {
-                                city = province;
-                            } else {
-                                city = formattedAddress;
-                            }
+                            city = province + district;
+                        } else if (city.isEmpty()) {
+                            QString province = geo["province"].toString();
+                            city = province;
                         }
                         
                         QString location = geo["location"].toString();

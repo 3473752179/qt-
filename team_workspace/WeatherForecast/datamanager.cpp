@@ -1,4 +1,5 @@
 #include "datamanager.h"
+#include "enums.h"
 #include <QFile>
 #include <QJsonDocument>
 #include <QJsonObject>
@@ -6,7 +7,7 @@
 #include <QDir>
 #include <QStandardPaths>
 #include <QDebug>
-
+#include <QCoreApplication>
 // ==================== 成员2：数据管理模块 ====================
 // 负责数据持久化、缓存管理、配置存储
 
@@ -32,7 +33,7 @@ DataManager& DataManager::instance()
 
 QString DataManager::getAppDataPath()
 {
-    QString path = QStandardPaths::writableLocation(QStandardPaths::AppDataLocation);
+    QString path = QCoreApplication::applicationDirPath() + "/data";
     QDir dir(path);
     if (!dir.exists()) {
         dir.mkpath(path);
@@ -248,6 +249,8 @@ void DataManager::cacheWeatherData(const QString& cityId, WeatherModel* weather)
     obj["pressure"] = weather->pressure();
     obj["visibility"] = weather->visibility();
     obj["updateTime"] = weather->updateTime().toString();
+    obj["weatherType"] = weatherTypeToString(weather->weatherType());
+    obj["weatherDescription"] = weather->weatherDescription();
     
     QJsonDocument doc(obj);
     QFile file(getWeatherCachePath(cityId));
@@ -282,6 +285,8 @@ WeatherModel* DataManager::loadCachedWeather(const QString& cityId)
     weather->setPressure(obj["pressure"].toInt());
     weather->setVisibility(obj["visibility"].toInt());
     weather->setUpdateTime(QDateTime::fromString(obj["updateTime"].toString()));
+    weather->setWeatherType(weatherTypeFromString(obj["weatherType"].toString()));
+    weather->setWeatherDescription(obj["weatherDescription"].toString());
     
     return weather;
 }
@@ -299,6 +304,13 @@ void DataManager::cacheForecastData(const QString& cityId, ForecastModel* foreca
         dayObj["maxTemp"] = day->maxTemperature();
         dayObj["minTemp"] = day->minTemperature();
         dayObj["humidity"] = day->humidity();
+        dayObj["dayWeather"] = day->dayWeather();
+        dayObj["nightWeather"] = day->nightWeather();
+        dayObj["dayWind"] = day->dayWind();
+        dayObj["nightWind"] = day->nightWind();
+        dayObj["dayPower"] = day->dayPower();
+        dayObj["nightPower"] = day->nightPower();
+        dayObj["weatherType"] = weatherTypeToString(day->weatherType());
         daysArray.append(dayObj);
     }
     obj["forecasts"] = daysArray;
@@ -338,6 +350,13 @@ ForecastModel* DataManager::loadCachedForecast(const QString& cityId)
         day->setMaxTemperature(dayObj["maxTemp"].toDouble());
         day->setMinTemperature(dayObj["minTemp"].toDouble());
         day->setHumidity(dayObj["humidity"].toInt());
+        day->setDayWeather(dayObj["dayWeather"].toString());
+        day->setNightWeather(dayObj["nightWeather"].toString());
+        day->setDayWind(dayObj["dayWind"].toString());
+        day->setNightWind(dayObj["nightWind"].toString());
+        day->setDayPower(dayObj["dayPower"].toString());
+        day->setNightPower(dayObj["nightPower"].toString());
+        day->setWeatherType(weatherTypeFromString(dayObj["weatherType"].toString()));
         forecast->addForecast(day);
     }
     

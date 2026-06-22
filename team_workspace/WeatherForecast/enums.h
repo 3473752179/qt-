@@ -70,6 +70,21 @@ inline QString weatherTypeToString(WeatherType type) {
     }
 }
 
+inline WeatherType weatherTypeFromString(const QString& str) {
+    QString s = str.trimmed();
+    if (s == "晴") return WeatherType::Sunny;
+    if (s == "多云") return WeatherType::Cloudy;
+    if (s == "阴") return WeatherType::Overcast;
+    if (s == "小雨") return WeatherType::LightRain;
+    if (s == "大雨") return WeatherType::HeavyRain;
+    if (s == "雷阵雨") return WeatherType::Thunderstorm;
+    if (s == "小雪") return WeatherType::LightSnow;
+    if (s == "大雪") return WeatherType::HeavySnow;
+    if (s == "雾") return WeatherType::Fog;
+    if (s == "霾") return WeatherType::Haze;
+    return WeatherType::Unknown;
+}
+
 inline QString themeModeToString(ThemeMode mode) {
     return mode == ThemeMode::Dark ? "深色" : "浅色";
 }
